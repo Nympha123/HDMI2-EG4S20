@@ -1,0 +1,123 @@
+HDMI-7  -  standalone TD project backup (current version only)
+generated 2026-10-10 21:19:07
+
+OPEN IN TD : src\td_project\HDMI1.4b_Transmitter_v1.0.al
+FLOW       : syn_1 = synthesis ; phy_1 = place&route + bitgen
+NOTE       : .prj sources use ../../../user_source/... , do NOT move folders
+
+CURRENT BITSTREAM : bitstream\HDMI1.4b_Transmitter_v1.0_L12_x7_695861ED.bit
+  MD5 = 695861ED1B171ACD6EF0A748E3954FCC
+  verified on board: Setup +1021ps / TNS 0 / 0 endpoints
+
+INVENTORY  (size / MD5-8 / path)
+       349 B  A14B0484  .gitignore
+   629,624 B  695861ED  bitstream\HDMI1.4b_Transmitter_v1.0_L12_x7_695861ED.bit
+     9,753 B  60647DDA  README.md
+     1,166 B  477ABB2A  src\td_project\al_ip\AUDIO_SAMPLE_ROM.ipc
+     1,455 B  2F18DD86  src\td_project\al_ip\AUDIO_SAMPLE_ROM.v
+     1,621 B  3ED34E1D  src\td_project\al_ip\AUDIO_SAMPLE_ROM.vhd
+     1,511 B  F1A510AB  src\td_project\al_ip\PLL.ipc
+     2,438 B  B09F7D92  src\td_project\al_ip\PLL.v
+     2,688 B  E9654AD2  src\td_project\al_ip\PLL.vhd
+     1,841 B  32471344  src\td_project\al_ip\PLL_HDMI_AUDIO.ipc
+     2,757 B  95F91821  src\td_project\al_ip\PLL_HDMI_AUDIO.v
+     2,941 B  A3E1AC39  src\td_project\al_ip\PLL_HDMI_AUDIO.vhd
+    24,640 B  C81E9609  src\td_project\HDMI1.4b_Transmitter_v1.0.al
+    28,545 B  F7E83421  src\td_project\HDMI1.4b_Transmitter_v1.0_Runs\phy_1\HDMI1.4b_Transmitter_v1.0.prj
+     7,809 B  1542A59F  src\td_project\HDMI1.4b_Transmitter_v1.0_Runs\phy_1\HDMI1.4b_Transmitter_v1.0.tcl
+       647 B  F93F0FBC  src\td_project\HDMI1.4b_Transmitter_v1.0_Runs\phy_1\settings.cfg
+    28,545 B  F7E83421  src\td_project\HDMI1.4b_Transmitter_v1.0_Runs\syn_1\HDMI1.4b_Transmitter_v1.0.prj
+     7,809 B  1542A59F  src\td_project\HDMI1.4b_Transmitter_v1.0_Runs\syn_1\HDMI1.4b_Transmitter_v1.0.tcl
+       488 B  79C1EA3F  src\td_project\HDMI1.4b_Transmitter_v1.0_Runs\syn_1\settings.cfg
+         0 B  D41D8CD9  src\user_source\constraints_source\.edid_debug_bak.cwc
+    59,256 B  745E874B  src\user_source\constraints_source\edid_debug.cwc
+     5,445 B  5753BE01  src\user_source\constraints_source\pin.adc
+     7,232 B  86BE2C9E  src\user_source\constraints_source\timing.sdc
+     1,702 B  5AAA44C9  src\user_source\hdl_source\audio_arc_calculate.v
+     1,655 B  433CBB93  src\user_source\hdl_source\audio_source_mux.v
+     1,980 B  273C943C  src\user_source\hdl_source\fast_boot_gate.v
+    11,660 B  1DBAA617  src\user_source\hdl_source\fat32_find_file.v
+     2,299 B  F7AAEF75  src\user_source\hdl_source\fifo_prefetch_2.v
+     4,680 B  8998A68D  src\user_source\hdl_source\hdmi_audio_tone_i2s_64fs.v
+     2,900 B  7E2EF87D  src\user_source\hdl_source\hdmi_audio_tone_pcm_scale.v
+     4,017 B  5A7CD92E  src\user_source\hdl_source\hdmi_phy_warpper.v
+   328,975 B  BDAB7066  src\user_source\hdl_source\hdmi1.4b_transmitter_core\hdmi_1_4b_transmitter_core_wrapper.enc.v
+     4,205 B  DD45D3F4  src\user_source\hdl_source\I2S_receiver.v
+       373 B  F2AE0FB6  src\user_source\hdl_source\include\global_def.v
+     7,538 B  0E738B74  src\user_source\hdl_source\include\sdr_as_ram.enc.v
+     9,059 B  27880601  src\user_source\hdl_source\include\sdr_init_ref.enc.v
+    15,637 B  D3B2DAFD  src\user_source\hdl_source\include\sdr_wrrd.enc.v
+       554 B  A935120A  src\user_source\hdl_source\IP\afifo_16_256.tcl
+    34,121 B  D0C5F200  src\user_source\hdl_source\IP\afifo_16_256.v
+     1,405 B  E43962F1  src\user_source\hdl_source\IP\afifo_16_256.vhd
+    64,027 B  3DD1E0D7  src\user_source\hdl_source\IP\afifo_16_256_sim.v
+       856 B  D3310B3A  src\user_source\hdl_source\IP\afifo_16_32_256.ipc
+       554 B  A935120A  src\user_source\hdl_source\IP\afifo_16_32_256.tcl
+    34,123 B  76DADCB1  src\user_source\hdl_source\IP\afifo_16_32_256.v
+       857 B  A159C411  src\user_source\hdl_source\IP\afifo_32_16_256.ipc
+       554 B  A935120A  src\user_source\hdl_source\IP\afifo_32_16_256.tcl
+    34,123 B  1305DF06  src\user_source\hdl_source\IP\afifo_32_16_256.v
+       385 B  64A2E932  src\user_source\hdl_source\IP\sdram.ipc
+     1,108 B  4F247BB9  src\user_source\hdl_source\IP\sdram.v
+     1,336 B  EE70BC4E  src\user_source\hdl_source\IP\sdram.vhd
+     1,826 B  2BC2D1E6  src\user_source\hdl_source\IP\sys_pll.ipc
+     2,616 B  9B25A21C  src\user_source\hdl_source\IP\sys_pll.v
+     2,863 B  91CDE92D  src\user_source\hdl_source\IP\sys_pll.vhd
+     1,522 B  973B7AAB  src\user_source\hdl_source\IP\video_pll.ipc
+     2,481 B  017BCD8A  src\user_source\hdl_source\IP\video_pll.v
+     2,661 B  E7F6F7BD  src\user_source\hdl_source\IP\video_pll.vhd
+     1,762 B  5950C895  src\user_source\hdl_source\key_remove_shakes.v
+     4,421 B  FE0736B3  src\user_source\hdl_source\lane_lvds_10_1.v
+    13,215 B  8BB1CBB0  src\user_source\hdl_source\media_frame_loader.v
+    24,018 B  82476BBE  src\user_source\hdl_source\media_frame_reader.v
+     3,357 B  A2BBEDC5  src\user_source\hdl_source\media_hdmi_audio_bridge.v
+     6,245 B  5F55BADE  src\user_source\hdl_source\media_player_control.v
+     7,941 B  81DCCCAC  src\user_source\hdl_source\media_sdram_write_cdc.v
+     4,067 B  D5E4A1D1  src\user_source\hdl_source\osd_overlay_24.v
+       856 B  76C40CD6  src\user_source\hdl_source\pcm_content_mux.v
+     8,519 B  5F74F350  src\user_source\hdl_source\promax_audio_waveform.v
+       495 B  48AF7CCB  src\user_source\hdl_source\reset_sync.v
+     2,684 B  DD1AA527  src\user_source\hdl_source\rgb_video_adapter.v
+     8,375 B  A74E1602  src\user_source\hdl_source\rom\i2s_rom_player_single_pll_fix64_rom_ip.v
+     2,201 B  64A47D6D  src\user_source\hdl_source\SD\ax_debounce.v
+     9,141 B  CB16A6FB  src\user_source\hdl_source\SD\color_bar.v
+    11,288 B  8171499B  src\user_source\hdl_source\SD\fat32_file_streamer.v
+    22,585 B  A51CFC5A  src\user_source\hdl_source\SD\fat32_volume_scanner.v
+    10,172 B  B7A2152E  src\user_source\hdl_source\SD\frame_fifo_read.v
+    11,551 B  DF29303B  src\user_source\hdl_source\SD\frame_fifo_write.v
+    11,057 B  485602AA  src\user_source\hdl_source\SD\frame_read_write.v
+    53,164 B  FB4DC134  src\user_source\hdl_source\SD\sd_card_bmp.v
+    47,453 B  8093BFA7  src\user_source\hdl_source\SD\sd_card_bmp.v.bak_20261007_pre_lesson8
+     8,550 B  6F646D35  src\user_source\hdl_source\SD\sd_card_cmd.v
+     5,620 B  F036F701  src\user_source\hdl_source\SD\sd_card_sec_read_write.v
+     7,277 B  800CD125  src\user_source\hdl_source\SD\sd_card_top.v
+     1,674 B  FCF07BEB  src\user_source\hdl_source\SD\sd_sector_adapter.v
+     2,412 B  F43FED09  src\user_source\hdl_source\SD\sdram.v
+       766 B  2A6D968B  src\user_source\hdl_source\SD\seg_decoder.v
+     1,847 B  8711A65B  src\user_source\hdl_source\SD\seg_scan.v
+     3,655 B  1197717C  src\user_source\hdl_source\SD\spi_master.v
+        21 B  C5677883  src\user_source\hdl_source\SD\video_define.v
+     1,595 B  A435A2BF  src\user_source\hdl_source\SD\video_delay.v
+     2,432 B  C970F390  src\user_source\hdl_source\SD\video_timing_data.v
+       713 B  FCD4EFFC  src\user_source\hdl_source\startup_pulse.v
+     6,654 B  834E7A4C  src\user_source\hdl_source\status_osd_overlay.v
+     2,750 B  0FA6CF75  src\user_source\hdl_source\subtitle_frame_commit.v
+    14,756 B  FB078A33  src\user_source\hdl_source\subtitle_overlay.v
+       559 B  6D43CAB9  src\user_source\hdl_source\sync_2ff.v
+     2,808 B  E9B68790  src\user_source\hdl_source\sync_fade_gain.v
+     6,443 B  C1E5F9E4  src\user_source\hdl_source\test\design_top_i2s_test_pll.v
+     3,645 B  2679BD31  src\user_source\hdl_source\test\i2s_test_tone_gen_pll.v
+    46,823 B  81AC4B3F  src\user_source\hdl_source\top_tf_hdmi_audio.v
+    15,562 B  0F5A548C  src\user_source\hdl_source\top_tf_hdmi_audio.v.bak_20261007_pre_lesson8
+     7,994 B  A0E88C01  src\user_source\hdl_source\video_fade_transition.v
+     1,749 B  F57C1A06  src\user_source\hdl_source\video_rgb_to_axis_640x480.v
+     2,983 B  EDA9FBE1  src\user_source\hdl_source\video_source_test.v
+     3,080 B  0A7749EB  src\user_source\hdl_source\video_timing_ctrl.v
+    10,686 B  55DA08BB  src\user_source\hdl_source\wav_stream_player.v
+     2,124 B  C6773246  src\user_source\ip_source\pll.ipc
+     3,333 B  E806C04E  src\user_source\ip_source\pll.v
+     3,559 B  A0D82AEF  src\user_source\ip_source\pll.vhd
+     3,982 B  6383155B  tools\push.ps1
+     3,937 B  529D8A37  打开说明.md
+
+total files = 110
