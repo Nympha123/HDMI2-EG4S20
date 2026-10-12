@@ -128,3 +128,22 @@ set_false_path -to [get_pins {ctrl_active_index_seg_reg*/D}]
 set_false_path -to [get_pins {reader_index_seg_reg*/D}]
 set_false_path -to [get_pins {reader_error_seg_reg*/D}]
 set_false_path -to [get_pins {loader_image_complete_seg_reg*/D}]
+
+# ------------------------------------------------------------
+# 8. 顶层 clk（50MHz 输入端口）域相关的伪路径
+#
+#    top_tf_hdmi_audio.v 里只有三处用原始 clk：
+#      - seg_scan_m0 的扫描时钟（输出直接到数码管，无同步时序要求）
+#      - 4 位跨域调试寄存器 reader_index_seg / ctrl_active_index_seg /
+#        reader_error_seg / loader_image_complete_seg（每拍采样慢变量）
+#    上面第 127~130 行本来是给这 4 位寄存器切 false_path 的，但 TD 在
+#    optimize 阶段偶尔会把这些寄存器合并进下游 LUT 的输入，
+#    `get_pins {xxx_seg_reg*/D}` 就一条都匹配不到（日志里能看到
+#    USR-6001 / USR-8159），于是 video_clk -> clk 的跨域路径按同步路径分析，
+#    报出 -1.349ns / -0.767ns 的伪 hold 违例。
+#    这里改成按时钟域切断，不再依赖寄存器名。
+# ------------------------------------------------------------
+set_false_path -from [get_clocks {video_clk sd_card_clk ext_mem_clk hdmi_5x_clk audio_mclk}] \
+               -to   [get_clocks {clk}]
+set_false_path -from [get_clocks {clk}] \
+               -to   [get_clocks {video_clk sd_card_clk ext_mem_clk hdmi_5x_clk audio_mclk}]
