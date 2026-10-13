@@ -1120,6 +1120,7 @@ info_bands u_info_bands (
     .img_ready      (loader_image_complete_seg),
     .auto_enabled   (sub_en_vid),
     .bright_level   (edit_sel ? contrast_lvl : bright_lvl),
+    .param_is_contrast (edit_sel),
     .rgb_out        (vout_data_sub)
 );
 

@@ -273,6 +273,7 @@ module info_bands (
     input  wire [3:0]  img_ready,
     input  wire        auto_enabled,
     input  wire [4:0]  bright_level,   // 亮度档位 0..16（旋转编码器给）
+    input  wire        param_is_contrast, // 1 = the knob is editing contrast (bottom bar word)
     output wire [23:0] rgb_out
 );
 
@@ -471,7 +472,12 @@ module info_bands (
     wire [3:0] lum_ones = (lum_lv >= 5'd10) ? (lum_lv[3:0] - 4'd10) : lum_lv[3:0];
     wire [7:0] lum_ch_t = (lum_lv >= 5'd10) ? 8'h31 : 8'h20;
     wire [7:0] lum_ch_o = 8'h30 + {4'b0, lum_ones};
-    wire [63:0] lum_str = { 8'h36, 8'h31, 8'h2F, lum_ch_o, lum_ch_t, 8'h20, 8'h81, 8'h80 };
+    // word: 亮度 (0x80 0x81)  or  对比度 (0xC7 0xC8 0x81)
+    wire [7:0] lum_w0 = param_is_contrast ? 8'hC7 : 8'h80;   // 对 / 亮
+    wire [7:0] lum_w1 = param_is_contrast ? 8'hC8 : 8'h81;   // 比 / 度
+    wire [7:0] lum_w2 = param_is_contrast ? 8'h81 : 8'h20;   // 度 / space
+    wire [4:0] lum_n  = param_is_contrast ? 5'd9 : 5'd8;     // string length in chars
+    wire [79:0] lum_str = { 8'h36, 8'h31, 8'h2F, lum_ch_o, lum_ch_t, 8'h20, lum_w2, lum_w1, lum_w0 };
     localparam integer ZONE_N = 6;
     wire [47:0] zone_str = 48'h418685848382;
     localparam integer SUB_N = 29;
@@ -586,9 +592,9 @@ wire [5:0]   sub_len = (sub_idx == 2'd0) ? 6'd12 : (sub_idx == 2'd1) ? 6'd13 : 6
                         begin rom_code = 8'h30 + {4'b0, tot_ones}; t_dx = pixel_x - tot_ones_x; rom_use = 1'b1;    end
                     else begin
                         // 亮度组（居中）/ 展区组（右对齐），按像素落点选字
-                        if ((pixel_x >= (LUM_CX - LUM_N * 8)) && (pixel_x < (LUM_CX + LUM_N * 8))) begin
-                            rom_code = txt_char(lum_str, (pixel_x - (LUM_CX - LUM_N * 8)) >> 4);
-                            t_dx = pixel_x - (LUM_CX - LUM_N * 8);
+                        if ((pixel_x >= (LUM_CX - lum_n * 8)) && (pixel_x < (LUM_CX + lum_n * 8))) begin
+                            rom_code = txt_char(lum_str, (pixel_x - (LUM_CX - lum_n * 8)) >> 4);
+                            t_dx = pixel_x - (LUM_CX - lum_n * 8);
                             rom_use = 1'b1;
                         end else if ((pixel_x >= (ZONE_R - ZONE_N * 16)) && (pixel_x < ZONE_R)) begin
                             rom_code = txt_char(zone_str, (pixel_x - (ZONE_R - ZONE_N * 16)) >> 4);
