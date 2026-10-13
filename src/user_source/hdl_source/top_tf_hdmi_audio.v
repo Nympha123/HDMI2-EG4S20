@@ -1088,6 +1088,26 @@ rotary_brightness #(
     .level     (bright_level),
     .key_pulse (enc_key_pulse)
 );
+// ---- EC11 second dimension: short press switches the edit target ----
+reg        edit_sel;                     // 0 = brightness, 1 = contrast
+reg [4:0]  bright_lvl, contrast_lvl, knob_d;
+always @(posedge video_clk or negedge video_rst_n) begin
+    if (!video_rst_n) begin
+        edit_sel     <= 1'b0;
+        bright_lvl   <= 5'd12;           // 0.75 - same as the previous version
+        contrast_lvl <= 5'd8;            // 128 = identity
+        knob_d       <= bright_level;
+    end else begin
+        if (enc_key_pulse) edit_sel <= ~edit_sel;    // short press: switch target
+        knob_d <= bright_level;
+        if (bright_level != knob_d) begin            // a turn happened
+            if (edit_sel) contrast_lvl <= bright_level;
+            else          bright_lvl   <= bright_level;
+        end
+    end
+end
+wire [7:0] bright8   = (bright_lvl   >= 5'd16) ? 8'd255 : {bright_lvl,   4'b0000};
+wire [7:0] contrast8 = (contrast_lvl >= 5'd16) ? 8'd255 : {contrast_lvl, 4'b0000};
 info_bands u_info_bands (
     .clk            (video_clk),
     .rst_n          (video_rst_n),
@@ -1099,7 +1119,7 @@ info_bands u_info_bands (
     .cur_index      (reader_index),
     .img_ready      (loader_image_complete_seg),
     .auto_enabled   (sub_en_vid),
-    .bright_level   (bright_level),
+    .bright_level   (edit_sel ? contrast_lvl : bright_lvl),
     .rgb_out        (vout_data_sub)
 );
 
@@ -1148,26 +1168,7 @@ assign vout_data = (frame_ready_vid | ui_menu_vid) ? vout_data_menu : 24'd0;
 wire [23:0] vout_data_br;
 // brightness (from the EC11 level) + contrast (fixed 128 = identity for now)
 // level 0..16 -> brightness 0..255 : *16, clamped (level 16 -> 255, 0.4% off 1.0)
-// ---- EC11 second dimension: short press switches the edit target ----
-reg        edit_sel;                     // 0 = brightness, 1 = contrast
-reg [4:0]  bright_lvl, contrast_lvl, knob_d;
-always @(posedge video_clk or negedge video_rst_n) begin
-    if (!video_rst_n) begin
-        edit_sel     <= 1'b0;
-        bright_lvl   <= 5'd12;           // 0.75 - same as the previous version
-        contrast_lvl <= 5'd8;            // 128 = identity
-        knob_d       <= bright_level;
-    end else begin
-        if (enc_key_pulse) edit_sel <= ~edit_sel;    // short press: switch target
-        knob_d <= bright_level;
-        if (bright_level != knob_d) begin            // a turn happened
-            if (edit_sel) contrast_lvl <= bright_level;
-            else          bright_lvl   <= bright_level;
-        end
-    end
-end
-wire [7:0] bright8   = (bright_lvl   >= 5'd16) ? 8'd255 : {bright_lvl,   4'b0000};
-wire [7:0] contrast8 = (contrast_lvl >= 5'd16) ? 8'd255 : {contrast_lvl, 4'b0000};
+
 
 brightness_contrast_adjust u_bc_adjust (
     .clk        (video_clk),
