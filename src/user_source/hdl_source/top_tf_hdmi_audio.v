@@ -1076,7 +1076,7 @@ rotary_brightness #(
     .CONFIRM         (3),
     .KEY_DEBOUNCE_MS (20),
     .KEY_BLANK_MS    (60),
-    .RESET_ON_KEY    (1'b1),
+    .RESET_ON_KEY    (1'b0),
     .LEVEL_INIT      (5'd12),
     .LEVEL_MAX       (5'd16)
 ) u_rotary_brightness (
@@ -1148,8 +1148,26 @@ assign vout_data = (frame_ready_vid | ui_menu_vid) ? vout_data_menu : 24'd0;
 wire [23:0] vout_data_br;
 // brightness (from the EC11 level) + contrast (fixed 128 = identity for now)
 // level 0..16 -> brightness 0..255 : *16, clamped (level 16 -> 255, 0.4% off 1.0)
-wire [7:0] bright8 = (bright_level >= 5'd16) ? 8'd255 : {bright_level, 4'b0000};
-wire [7:0] contrast8 = 8'd128;
+// ---- EC11 second dimension: short press switches the edit target ----
+reg        edit_sel;                     // 0 = brightness, 1 = contrast
+reg [4:0]  bright_lvl, contrast_lvl, knob_d;
+always @(posedge video_clk or negedge video_rst_n) begin
+    if (!video_rst_n) begin
+        edit_sel     <= 1'b0;
+        bright_lvl   <= 5'd12;           // 0.75 - same as the previous version
+        contrast_lvl <= 5'd8;            // 128 = identity
+        knob_d       <= bright_level;
+    end else begin
+        if (enc_key_pulse) edit_sel <= ~edit_sel;    // short press: switch target
+        knob_d <= bright_level;
+        if (bright_level != knob_d) begin            // a turn happened
+            if (edit_sel) contrast_lvl <= bright_level;
+            else          bright_lvl   <= bright_level;
+        end
+    end
+end
+wire [7:0] bright8   = (bright_lvl   >= 5'd16) ? 8'd255 : {bright_lvl,   4'b0000};
+wire [7:0] contrast8 = (contrast_lvl >= 5'd16) ? 8'd255 : {contrast_lvl, 4'b0000};
 
 brightness_contrast_adjust u_bc_adjust (
     .clk        (video_clk),
