@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+﻿<?xml version="1.0" encoding="UTF-8"?>
 <Project Version="3" Minor="2" RunTime="2026-10-07T16:33:41">
     <Project_Created_Time></Project_Created_Time>
     <TD_Version>6.2.168116</TD_Version>
@@ -480,6 +480,14 @@
                     <Attr Name="CompileOrder" Val="66"/>
                 </FileInfo>
             </File>
+            <File Path="../../../user_source/hdl_source/font_rom.v">
+                <FileInfo>
+                    <Attr Name="UsedInSyn" Val="true"/>
+                    <Attr Name="UsedInP&R" Val="true"/>
+                    <Attr Name="BelongTo" Val="design_1"/>
+                    <Attr Name="CompileOrder" Val="67"/>
+                </FileInfo>
+            </File>
             <File Path="../../../user_source/hdl_source/subtitle_frame_commit.v">
                 <FileInfo>
                     <Attr Name="UsedInSyn" Val="true"/>
@@ -577,14 +585,6 @@
                     <Attr Name="UsedInP&R" Val="true"/>
                     <Attr Name="BelongTo" Val="design_1"/>
                     <Attr Name="CompileOrder" Val="18"/>
-                </FileInfo>
-            </File>
-            <File Path="../../al_ip/FONT_ROM.ipc">
-                <FileInfo>
-                    <Attr Name="UsedInSyn" Val="true"/>
-                    <Attr Name="UsedInP&R" Val="true"/>
-                    <Attr Name="BelongTo" Val="design_1"/>
-                    <Attr Name="CompileOrder" Val="67"/>
                 </FileInfo>
             </File>
         </IP_FILE>
