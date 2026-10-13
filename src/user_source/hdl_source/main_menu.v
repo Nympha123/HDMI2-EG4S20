@@ -297,13 +297,13 @@ module main_menu (
                                    : 12'd0;
 
     wire [15:0] rom_row_bits;
-    FONT_ROM u_menu_font_rom (
-        .doa   (rom_row_bits),
-        .addra (rom_addr),
-        .ocea  (1'b1),
-        .rsta  (1'b0),
-        .clka  (clk)
-    );
+    // RTL font ROM (ours, 1-cycle) + one address register => 2 cycles, as this pipeline expects
+    reg [11:0] rom_addr_q;
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) rom_addr_q <= 12'd0;
+        else        rom_addr_q <= rom_addr;
+    end
+    font_rom u_menu_font_rom (.clk(clk), .addr(rom_addr_q), .dout(rom_row_bits));
 
     // ------------------------------------------------------------------
     // 2 拍流水：像素侧信号与 ROM 数据对齐

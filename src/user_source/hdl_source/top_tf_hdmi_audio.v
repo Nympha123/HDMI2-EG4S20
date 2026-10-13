@@ -3,7 +3,8 @@ module top(
     input                       clk,
     input                       rst_n,
     input                       key1,           // ???????????????
-    input                       key2,           // ???????????? ???/???
+    input                       key2,           // ???????????? ???/???
+    input                       key3,           // KEY3 (pin B1): menu down / long-press confirm
 
     output [5:0]                seg_sel,
     output [7:0]                seg_data,
@@ -549,6 +550,23 @@ assign wav_sector_lba = wav_find_found ? wav_play_lba : wav_find_lba;
 // ---- 48 kHz ?????sd_card_clk = 100MHz -> ? 2083 ??? tick?? 48.0 kHz?----
 // ?????????????100MHz ????????????WAV ??????????
 // (WAV ????? FAT32 ???????)
+// ===== main menu control (sd_card_clk) + KEY1/KEY2 masking while the menu is up =====
+wire       ui_menu_sd;
+wire [1:0] ui_sel_sd;
+main_menu_ctrl #(
+    .CLK_FREQ_HZ   (50_000_000),
+    .DEBOUNCE_MS   (20),
+    .LONG_PRESS_MS (800)
+) u_main_menu_ctrl (
+    .clk         (sd_card_clk),
+    .rst         (~sdcard_rst_n),
+    .key2        (key2),
+    .key3        (key3),
+    .menu_active (ui_menu_sd),
+    .sel         (ui_sel_sd)
+);
+wire ui_key1 = ui_menu_sd ? 1'b1 : key1;
+wire ui_key2 = ui_menu_sd ? 1'b1 : key2;
 sd_card_bmp #(
     .CLK_FREQ_HZ       (100_000_000),   // DO NOT change: SCK divider scales with this; 50_000_000 doubles the SD clock and breaks image loading (verified on board)
     .SCAN_START_SECTOR (32'd0),
@@ -557,8 +575,8 @@ sd_card_bmp #(
 ) sd_card_bmp_m0(
     .clk               (sd_card_clk),
     .rst               (~sdcard_rst_n),
-    .key_next          (key1),
-    .key_auto          (key2),
+    .key_next          (ui_key1),
+    .key_auto          (ui_key2),
     .state_code        (state_code),
     .sdram_init_done   (sdram_init_done_sd),
     .bank_loaded       (loader_image_complete),  // ???????????????bank ??????????????????????????????
@@ -1083,7 +1101,26 @@ promax_audio_waveform #(
     .rgb_out         (vout_data_wave),
     .waveform_active ()
 );
-assign vout_data = frame_ready_vid ? vout_data_wave : 24'd0;
+// ===== main menu: 2FF sync into video_clk, draw on top of everything =====
+wire       ui_menu_vid;
+wire [1:0] ui_sel_vid;
+sync_2ff u_ui_menu_sync  (.clk(video_clk), .rst_n(video_rst_n), .async_in(ui_menu_sd),    .sync_out(ui_menu_vid));
+sync_2ff u_ui_sel_sync0  (.clk(video_clk), .rst_n(video_rst_n), .async_in(ui_sel_sd[0]),  .sync_out(ui_sel_vid[0]));
+sync_2ff u_ui_sel_sync1  (.clk(video_clk), .rst_n(video_rst_n), .async_in(ui_sel_sd[1]),  .sync_out(ui_sel_vid[1]));
+
+wire [23:0] vout_data_menu;
+main_menu u_main_menu (
+    .clk      (video_clk),
+    .rst_n    (video_rst_n),
+    .de       (raw_de),
+    .pixel_x  (raw_x),
+    .pixel_y  (raw_y),
+    .rgb_in   (vout_data_wave),
+    .active   (ui_menu_vid),
+    .sel      (ui_sel_vid),
+    .rgb_out  (vout_data_menu)
+);
+assign vout_data = (frame_ready_vid | ui_menu_vid) ? vout_data_menu : 24'd0;
 
 // ???????????????frame_read_write ?????????????????????????????????????????????
 // media_frame_loader + media_sdram_write_cdc???????????? media_frame_reader??????????????????
