@@ -5,6 +5,9 @@ module top(
     input                       key1,           // ???????????????
     input                       key2,           // ???????????? ???/???
     input                       key3,           // KEY3 (pin B1): menu down / long-press confirm
+    input                       enc_s1,         // EC11 S1  (pin M15)
+    input                       enc_s2,         // EC11 S2  (pin N16)
+    input                       enc_key,        // EC11 KEY (pin P16, active low)
 
     output [5:0]                seg_sel,
     output [7:0]                seg_data,
@@ -1064,6 +1067,27 @@ subtitle_frame_commit u_subtitle_frame_commit (
 
 // ??????????????? OSD ???????? frame_ready_vid ???
 wire [23:0] vout_data_sub;
+// ===== EC11 rotary encoder -> brightness level (video_clk domain) =====
+wire [4:0] bright_level;
+wire       enc_key_pulse;
+rotary_brightness #(
+    .CLK_FREQ_HZ     (25_000_000),
+    .SAMPLE_US       (250),
+    .CONFIRM         (3),
+    .KEY_DEBOUNCE_MS (20),
+    .KEY_BLANK_MS    (60),
+    .RESET_ON_KEY    (1'b1),
+    .LEVEL_INIT      (5'd12),
+    .LEVEL_MAX       (5'd16)
+) u_rotary_brightness (
+    .clk       (video_clk),
+    .rst_n     (video_rst_n),
+    .enc_a     (enc_s1),
+    .enc_b     (enc_s2),
+    .enc_key   (enc_key),
+    .level     (bright_level),
+    .key_pulse (enc_key_pulse)
+);
 info_bands u_info_bands (
     .clk            (video_clk),
     .rst_n          (video_rst_n),
@@ -1075,7 +1099,7 @@ info_bands u_info_bands (
     .cur_index      (reader_index),
     .img_ready      (loader_image_complete_seg),
     .auto_enabled   (sub_en_vid),
-    .bright_level   (5'd12),
+    .bright_level   (bright_level),
     .rgb_out        (vout_data_sub)
 );
 
@@ -1121,7 +1145,12 @@ main_menu u_main_menu (
     .rgb_out  (vout_data_menu)
 );
 assign vout_data = (frame_ready_vid | ui_menu_vid) ? vout_data_menu : 24'd0;
-
+wire [23:0] vout_data_br;
+video_brightness u_video_brightness (
+    .level   (bright_level),
+    .rgb_in  (vout_data),
+    .rgb_out (vout_data_br)
+);
 // ???????????????frame_read_write ?????????????????????????????????????????????
 // media_frame_loader + media_sdram_write_cdc???????????? media_frame_reader??????????????????
 // ?????????top_tf_hdmi_audio.v.bak_20261007_pre_lesson8???
@@ -1183,7 +1212,7 @@ video_rgb_to_axis_640x480 u_video_rgb_to_axis_640x480(
     .I_rst         (~video_rst_n),
     .I_vs          (vs),
     .I_de          (de),
-    .I_rgb         (vout_data),
+    .I_rgb         (vout_data_br),
     .O_video_user  (axis_s_user),
     .O_video_valid (axis_s_valid),
     .O_video_last  (axis_s_last),
