@@ -578,7 +578,8 @@ sd_card_bmp #(
     .SD_nCS            (sd_ncs),
     .SD_DCLK           (sd_dclk),
     .SD_MOSI           (sd_mosi),
-    .SD_MISO           (sd_miso),
+    .SD_MISO           (sd_miso)
+,
     .wav_sector_req        (wav_sector_req),
     .wav_sector_lba        (wav_sector_lba),
     .wav_sector_busy       (wav_sector_busy),
@@ -1045,23 +1046,19 @@ subtitle_frame_commit u_subtitle_frame_commit (
 
 // ??????????????? OSD ???????? frame_ready_vid ???
 wire [23:0] vout_data_sub;
-subtitle_overlay #(
-    .H_ACTIVE (640),
-    .SUB_Y    (430),
-    .CELL_W   (8)
-) u_subtitle_overlay (
-    .frame_start    (reader_frame_start),
+info_bands u_info_bands (
     .clk            (video_clk),
     .rst_n          (video_rst_n),
+    .frame_start    (reader_frame_start),
     .de             (raw_de),
-    .rgb_in         (vout_data_osd),
     .pixel_x        (raw_x),
     .pixel_y        (raw_y),
-    .text           (sub_text_vid),
-    .length         (sub_len_vid),
-    .enable         (sub_en_vid),
-    .rgb_out        (vout_data_sub),
-    .overlay_active ()
+    .rgb_in         (vout_data_osd),
+    .cur_index      (reader_index),
+    .img_ready      (loader_image_complete_seg),
+    .auto_enabled   (sub_en_vid),
+    .bright_level   (5'd12),
+    .rgb_out        (vout_data_sub)
 );
 
 // ---- lesson 12: audio waveform + peak bar overlay (pixel-domain, on top of subtitle) ----

@@ -9,7 +9,7 @@ module font_rom (
     input  wire [11:0] addr,
     output reg  [15:0] dout
 );
-    reg [15:0] grom [0:2815];
+    reg [15:0] grom [0:4095];
     initial begin
         $readmemh("font_rom.hex", grom);
     end
