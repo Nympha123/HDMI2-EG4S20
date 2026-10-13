@@ -1146,10 +1146,20 @@ main_menu u_main_menu (
 );
 assign vout_data = (frame_ready_vid | ui_menu_vid) ? vout_data_menu : 24'd0;
 wire [23:0] vout_data_br;
-video_brightness u_video_brightness (
-    .level   (bright_level),
-    .rgb_in  (vout_data),
-    .rgb_out (vout_data_br)
+// brightness (from the EC11 level) + contrast (fixed 128 = identity for now)
+// level 0..16 -> brightness 0..255 : *16, clamped (level 16 -> 255, 0.4% off 1.0)
+wire [7:0] bright8 = (bright_level >= 5'd16) ? 8'd255 : {bright_level, 4'b0000};
+wire [7:0] contrast8 = 8'd128;
+
+brightness_contrast_adjust u_bc_adjust (
+    .clk        (video_clk),
+    .rst_n      (video_rst_n),
+    .in_de      (raw_de),
+    .rgb_in     (vout_data),
+    .brightness (bright8),
+    .contrast   (contrast8),
+    .out_de     (),
+    .rgb_out    (vout_data_br)
 );
 // ???????????????frame_read_write ?????????????????????????????????????????????
 // media_frame_loader + media_sdram_write_cdc???????????? media_frame_reader??????????????????
