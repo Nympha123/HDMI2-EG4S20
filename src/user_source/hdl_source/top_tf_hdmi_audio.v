@@ -1,9 +1,10 @@
-
+﻿
 module top(
     input                       clk,
     input                       rst_n,
     input                       key1,           // ???????????????
-    input                       key2,           // ???????????? ???/???
+    input                       key2,           // ???????????? ???/???
+
     input                       key3,           // KEY3 (pin B1): menu down / long-press confirm
     input                       enc_s1,         // EC11 S1  (pin M15)
     input                       enc_s2,         // EC11 S2  (pin N16)
