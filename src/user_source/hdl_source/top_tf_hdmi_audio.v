@@ -889,8 +889,28 @@ always @(posedge video_clk or negedge video_rst_n) begin
     end
 end
 
+// ===== M1 page mode entry: EC11 button long press (~0.8 s at video_clk 25 MHz) =====
+//   enc_key is the raw EC11 push pin (active low). Counting up while held gives a
+//   long-press detect that is inherently debounced: short bounces never reach the count.
+reg [24:0] page_lp_cnt;
+reg        page_mode;
+always @(posedge video_clk or negedge video_rst_n) begin
+    if (!video_rst_n) begin
+        page_lp_cnt <= 25'd0;
+        page_mode   <= 1'b0;
+    end else if (!enc_key) begin
+        if (page_lp_cnt < 25'd20_000_000)
+            page_lp_cnt <= page_lp_cnt + 1'b1;
+        else if (page_lp_cnt == 25'd20_000_000) begin
+            page_lp_cnt <= 25'd20_000_001;   // fire exactly once per press
+            page_mode   <= ~page_mode;       // enter / leave the page view
+        end
+    end else begin
+        page_lp_cnt <= 25'd0;
+    end
+end
 // ===== Lesson-13 M1: thumbnail coordinate mapping + point-read request =====
-wire        thumb_mode_en = ui_thumb_vid;    // M1: menu item 4 (thumbnail) drives this            // entry switches this in the next step
+wire        thumb_mode_en = page_mode | ui_thumb_vid;   // encoder long press OR menu item 4    // M1: menu item 4 (thumbnail) drives this            // entry switches this in the next step
 wire [1:0]  thumb_src_index;
 wire [9:0]  thumb_src_x, thumb_src_y;
 wire        thumb_focus_border;
@@ -1103,6 +1123,9 @@ subtitle_frame_commit u_subtitle_frame_commit (
 
 // ??????????????? OSD ???????? frame_ready_vid ???
 wire [23:0] vout_data_sub;
+// M1: in the thumbnail screen the info bands (top bar / gold line / subtitles / bottom bar)
+// are hidden so the four thumbnails are not covered.
+wire [23:0] sub_or_thumb = thumb_mode_en ? vout_data_osd : vout_data_sub;
 // ===== EC11 rotary encoder -> brightness level (video_clk domain) =====
 wire [4:0] bright_level;
 wire       enc_key_pulse;
@@ -1174,7 +1197,7 @@ promax_audio_waveform #(
     .rst_n           (video_rst_n),
     .vsync           (vs),
     .de              (raw_de),
-    .rgb_in          (vout_data_sub),
+    .rgb_in         (sub_or_thumb),
     .pixel_x         (raw_x[9:0]),
     .enable          (wav_active),        // option C: show only while WAV plays
     .pcm_tap_valid   (wav_sample_valid),
@@ -1280,7 +1303,7 @@ video_rgb_to_axis_640x480 u_video_rgb_to_axis_640x480(
     .I_rst         (~video_rst_n),
     .I_vs          (vs),
     .I_de          (de),
-    .I_rgb         (((thumb_mode_en & thumb_focus_border) ? 24'hFFF04D : vout_data_br)),
+    .I_rgb         (vout_data_br),
     .O_video_user  (axis_s_user),
     .O_video_valid (axis_s_valid),
     .O_video_last  (axis_s_last),

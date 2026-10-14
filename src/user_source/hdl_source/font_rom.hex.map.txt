@@ -1,4 +1,4 @@
 char	slot	code_for_text_vector
-缩	0xC9	8'hC9
-略	0xCA	8'hCA
-图	0xCB	8'hCB
+片	0xCC	8'hCC
+信	0xCD	8'hCD
+息	0xCE	8'hCE
