@@ -518,7 +518,7 @@ module main_menu_ctrl #(
     output reg        menu_active,  // 1 = 主菜单
     output reg  [1:0] sel,
         output reg        thumb_ui,      // 1 = thumbnail screen is active
-    output reg        focus_step     // 1-cycle pulse: move the thumbnail focus
+        output reg        focus_toggle   // flips once per focus step (CDC-safe level)
 );
 
     localparam integer DB_CYC = (CLK_FREQ_HZ / 1000) * DEBOUNCE_MS;
@@ -633,7 +633,7 @@ module main_menu_ctrl #(
             lp_done_d   <= 1'b0;
             menu_active <= 1'b1;            sel         <= 2'd0;
             thumb_ui    <= 1'b0;
-            focus_step  <= 1'b0;
+            focus_toggle <= 1'b0;
         end else begin
             lp_done_d <= lp_done;
             if (menu_active) begin
@@ -646,9 +646,9 @@ module main_menu_ctrl #(
                     sel <= (sel == 2'd3) ? 2'd0 : (sel + 2'd1);
                 end
             end else begin
-                if (thumb_ui && k3_confirm) begin thumb_ui <= 1'b0; focus_step <= 1'b0; end
-                else if (thumb_ui && step_down) focus_step <= 1'b1;
-                else begin focus_step <= 1'b0; if (k3_press) menu_active <= 1'b1; end          // 图片界面 KEY3 短按 -> 回主菜单
+                if (thumb_ui && k3_confirm) thumb_ui <= 1'b0;
+                else if (thumb_ui && step_down) focus_toggle <= ~focus_toggle;
+                else if (k3_press) menu_active <= 1'b1;          // 图片界面 KEY3 短按 -> 回主菜单
             end
         end
     end

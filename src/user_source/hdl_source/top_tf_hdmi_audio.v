@@ -557,7 +557,7 @@ assign wav_sector_lba = wav_find_found ? wav_play_lba : wav_find_lba;
 // ===== main menu control (sd_card_clk) + KEY1/KEY2 masking while the menu is up =====
 wire       ui_menu_sd;
 wire       ui_thumb_sd;
-wire       ui_focus_step;
+wire       ui_focus_toggle;
 wire [1:0] ui_sel_sd;
 main_menu_ctrl #(
     .CLK_FREQ_HZ   (50_000_000),
@@ -570,7 +570,7 @@ main_menu_ctrl #(
     .key3        (key3),
     .menu_active (ui_menu_sd),
     .thumb_ui    (ui_thumb_sd),
-    .focus_step  (ui_focus_step),
+        .focus_toggle (ui_focus_toggle),
     .sel         (ui_sel_sd)
 );
 wire ui_key1 = ui_menu_sd ? 1'b1 : key1;
@@ -1188,14 +1188,16 @@ promax_audio_waveform #(
 // ===== main menu: 2FF sync into video_clk, draw on top of everything =====
 wire       ui_menu_vid;
 wire       ui_thumb_vid;
-wire       ui_focus_step_v;
+wire       ui_focus_toggle_v;
+reg        ui_focus_toggle_d;
 always @(posedge video_clk or negedge video_rst_n)
     if (!video_rst_n) thumb_focus <= 2'd0;
-    else if (ui_focus_step_v) thumb_focus <= thumb_focus + 2'd1;
+    else begin ui_focus_toggle_d <= ui_focus_toggle_v;
+        if (ui_focus_toggle_v ^ ui_focus_toggle_d) thumb_focus <= thumb_focus + 2'd1; end
 wire [1:0] ui_sel_vid;
 sync_2ff u_ui_menu_sync  (.clk(video_clk), .rst_n(video_rst_n), .async_in(ui_menu_sd),    .sync_out(ui_menu_vid));
 sync_2ff u_ui_thumb_sync (.clk(video_clk), .rst_n(video_rst_n), .async_in(ui_thumb_sd), .sync_out(ui_thumb_vid));
-sync_2ff u_ui_focus_sync (.clk(video_clk), .rst_n(video_rst_n), .async_in(ui_focus_step), .sync_out(ui_focus_step_v));
+sync_2ff u_ui_focus_sync (.clk(video_clk), .rst_n(video_rst_n), .async_in(ui_focus_toggle), .sync_out(ui_focus_toggle_v));
 sync_2ff u_ui_sel_sync0  (.clk(video_clk), .rst_n(video_rst_n), .async_in(ui_sel_sd[0]),  .sync_out(ui_sel_vid[0]));
 sync_2ff u_ui_sel_sync1  (.clk(video_clk), .rst_n(video_rst_n), .async_in(ui_sel_sd[1]),  .sync_out(ui_sel_vid[1]));
 
