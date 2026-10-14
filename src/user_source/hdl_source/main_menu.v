@@ -431,11 +431,11 @@ module main_menu (
     wire on_off3 = in_btn3 & ~on_sel3;
 
     // 选中项光晕：比按钮再外扩 6px 的白圈
-    wire [11:0] sbx0 = s0 ? b0x0 : (s1 ? b1x0 : b2x0);
-    wire [11:0] sbx1 = s0 ? b0x1 : (s1 ? b1x1 : b2x1);
-    wire [11:0] sby0 = s0 ? b0y0 : (s1 ? b1y0 : b2y0);
-    wire [11:0] sby1 = s0 ? b0y1 : (s1 ? b1y1 : b2y1);
-    wire [11:0] src  = s0 ? rc_0 : (s1 ? rc_1 : rc_2);
+    wire [11:0] sbx0 = s0 ? b0x0 : (s1 ? b1x0 : (s2 ? b2x0 : b3x0));
+    wire [11:0] sbx1 = s0 ? b0x1 : (s1 ? b1x1 : (s2 ? b2x1 : b3x1));
+    wire [11:0] sby0 = s0 ? b0y0 : (s1 ? b1y0 : (s2 ? b2y0 : b3y0));
+    wire [11:0] sby1 = s0 ? b0y1 : (s1 ? b1y1 : (s2 ? b2y1 : b3y1));
+    wire [11:0] src  = s0 ? rc_0 : (s1 ? rc_1 : (s2 ? rc_2 : rc_3));
     wire sel_pill   = pill_hit(dx_d, dy_d, sbx0, sby0, sbx1, sby1, src);
     wire sel_glow_o = pill_hit(dx_d, dy_d, sbx0 - 12'd6, sby0 - 12'd6,
                                            sbx1 + 12'd6, sby1 + 12'd6, src + 12'd6);
