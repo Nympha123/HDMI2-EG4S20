@@ -528,6 +528,30 @@
                     <Attr Name="CompileOrder" Val="72"/>
                 </FileInfo>
             </File>
+            <File Path="../../../user_source/hdl_source/bilinear_8q8.v">
+                <FileInfo>
+                    <Attr Name="UsedInSyn" Val="true"/>
+                    <Attr Name="UsedInP&R" Val="true"/>
+                    <Attr Name="BelongTo" Val="design_1"/>
+                    <Attr Name="CompileOrder" Val="73"/>
+                </FileInfo>
+            </File>
+            <File Path="../../../user_source/hdl_source/thumbnail_layout.v">
+                <FileInfo>
+                    <Attr Name="UsedInSyn" Val="true"/>
+                    <Attr Name="UsedInP&R" Val="true"/>
+                    <Attr Name="BelongTo" Val="design_1"/>
+                    <Attr Name="CompileOrder" Val="74"/>
+                </FileInfo>
+            </File>
+            <File Path="../../../user_source/hdl_source/thumb_linebuf.v">
+                <FileInfo>
+                    <Attr Name="UsedInSyn" Val="true"/>
+                    <Attr Name="UsedInP&R" Val="true"/>
+                    <Attr Name="BelongTo" Val="design_1"/>
+                    <Attr Name="CompileOrder" Val="75"/>
+                </FileInfo>
+            </File>
             <File Path="../../../user_source/hdl_source/subtitle_frame_commit.v">
                 <FileInfo>
                     <Attr Name="UsedInSyn" Val="true"/>
