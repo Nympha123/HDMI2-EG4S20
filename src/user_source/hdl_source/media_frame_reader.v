@@ -436,7 +436,7 @@ wire issue_allowed = !DIAG_SYNTH_STREAM && reader_busy && burst_active_mem &&
             //    any display accounting: doing so corrupted the frame completion
             //    logic and made "issued != returned" permanently true, which in turn
             //    let sweep words into the display FIFO (the F-state lock-up).
-            if (issue_allowed) begin
+            if (thumb_mode ? thumb_req : issue_allowed) begin
                 app_rd_en   <= 1'b1;
                 app_rd_addr <= thumb_mode ? (bank_base(src_index) + (src_y * 10'd640) + src_x)
                                        : (bank_base(reader_index) + issued_count_mem[ADDR_WIDTH-1:0]);
@@ -444,7 +444,7 @@ wire issue_allowed = !DIAG_SYNTH_STREAM && reader_busy && burst_active_mem &&
                 burst_issued_mem <= burst_issued_mem + 1'b1;
                 if (burst_issued_mem + 1'b1 == burst_target_mem) begin
                     burst_active_mem <= 1'b0;
-                    burst_gap_count_mem <= BURST_GAP_CYCLES;
+                    burst_gap_count_mem <= thumb_mode ? 4'd0 : BURST_GAP_CYCLES;
                 end
             end else if (sweep_issue) begin
                 app_rd_en   <= 1'b1;
