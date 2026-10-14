@@ -431,11 +431,11 @@ module main_menu (
     wire on_off3 = in_btn3 & ~on_sel3;
 
     // 选中项光晕：比按钮再外扩 6px 的白圈
-    wire [11:0] sbx0 = s0 ? b0x0 : (s1 ? b1x0 : (s2 ? b2x0 : b3x0));
-    wire [11:0] sbx1 = s0 ? b0x1 : (s1 ? b1x1 : (s2 ? b2x1 : b3x1));
-    wire [11:0] sby0 = s0 ? b0y0 : (s1 ? b1y0 : (s2 ? b2y0 : b3y0));
-    wire [11:0] sby1 = s0 ? b0y1 : (s1 ? b1y1 : (s2 ? b2y1 : b3y1));
-    wire [11:0] src  = s0 ? rc_0 : (s1 ? rc_1 : (s2 ? rc_2 : rc_3));
+    wire [11:0] sbx0 = s0 ? b0x0 : (s1 ? b1x0 : b2x0);
+    wire [11:0] sbx1 = s0 ? b0x1 : (s1 ? b1x1 : b2x1);
+    wire [11:0] sby0 = s0 ? b0y0 : (s1 ? b1y0 : b2y0);
+    wire [11:0] sby1 = s0 ? b0y1 : (s1 ? b1y1 : b2y1);
+    wire [11:0] src  = s0 ? rc_0 : (s1 ? rc_1 : rc_2);
     wire sel_pill   = pill_hit(dx_d, dy_d, sbx0, sby0, sbx1, sby1, src);
     wire sel_glow_o = pill_hit(dx_d, dy_d, sbx0 - 12'd6, sby0 - 12'd6,
                                            sbx1 + 12'd6, sby1 + 12'd6, src + 12'd6);
@@ -517,8 +517,7 @@ module main_menu_ctrl #(
     input  wire       key3,         // KEY3：短按下移 / 长按确定
     output reg        menu_active,  // 1 = 主菜单
     output reg  [1:0] sel,
-        output reg        thumb_ui,      // 1 = thumbnail screen is active
-        output reg        focus_toggle   // flips once per focus step (CDC-safe level)
+    output reg        thumb_ui       // 1 = thumbnail screen is active           // 0..2
 );
 
     localparam integer DB_CYC = (CLK_FREQ_HZ / 1000) * DEBOUNCE_MS;
@@ -633,7 +632,6 @@ module main_menu_ctrl #(
             lp_done_d   <= 1'b0;
             menu_active <= 1'b1;            sel         <= 2'd0;
             thumb_ui    <= 1'b0;
-            focus_toggle <= 1'b0;
         end else begin
             lp_done_d <= lp_done;
             if (menu_active) begin
@@ -647,8 +645,7 @@ module main_menu_ctrl #(
                 end
             end else begin
                 if (thumb_ui && k3_confirm) thumb_ui <= 1'b0;
-                else if (thumb_ui && step_down) focus_toggle <= ~focus_toggle;
-                else if (!thumb_ui && k3_press) menu_active <= 1'b1;          // 图片界面 KEY3 短按 -> 回主菜单
+                else if (k3_press) menu_active <= 1'b1;          // 图片界面 KEY3 短按 -> 回主菜单
             end
         end
     end

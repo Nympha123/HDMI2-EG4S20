@@ -1,4 +1,4 @@
-﻿
+
 module top(
     input                       clk,
     input                       rst_n,
@@ -557,7 +557,6 @@ assign wav_sector_lba = wav_find_found ? wav_play_lba : wav_find_lba;
 // ===== main menu control (sd_card_clk) + KEY1/KEY2 masking while the menu is up =====
 wire       ui_menu_sd;
 wire       ui_thumb_sd;
-wire       ui_focus_toggle;
 wire [1:0] ui_sel_sd;
 main_menu_ctrl #(
     .CLK_FREQ_HZ   (50_000_000),
@@ -570,7 +569,6 @@ main_menu_ctrl #(
     .key3        (key3),
     .menu_active (ui_menu_sd),
     .thumb_ui    (ui_thumb_sd),
-        .focus_toggle (ui_focus_toggle),
     .sel         (ui_sel_sd)
 );
 wire ui_key1 = ui_menu_sd ? 1'b1 : key1;
@@ -894,13 +892,10 @@ end
 // ===== Lesson-13 M1: thumbnail coordinate mapping + point-read request =====
 wire        thumb_mode_en = ui_thumb_vid;    // M1: menu item 4 (thumbnail) drives this            // entry switches this in the next step
 wire [1:0]  thumb_src_index;
-reg  [1:0]  thumb_focus;      // 0..3 selected thumbnail
 wire [9:0]  thumb_src_x, thumb_src_y;
-wire        thumb_de;
-wire [23:0] thumb_brd = (thumb_focus == 2'd0) ? 24'hFFFFFF : (thumb_focus == 2'd1) ? 24'hFFF04D : (thumb_focus == 2'd2) ? 24'h00FF00 : 24'hFF00FF;
 wire        thumb_focus_border;
 reg  [1:0]  thumb_req_div;
-wire        thumb_req = thumb_mode_en & raw_de & thumb_de & (thumb_req_div == 2'd3);
+wire        thumb_req = thumb_mode_en & raw_de & (thumb_req_div == 2'd3);
 always @(posedge video_clk or negedge video_rst_n)
     if (!video_rst_n) thumb_req_div <= 2'd0;
     else if (raw_de)  thumb_req_div <= thumb_req_div + 2'd1;
@@ -913,10 +908,10 @@ thumbnail_layout #(
 ) u_thumbnail_layout (
     .in_de          (raw_de),
     .pixel_x        (raw_x),
-    .pixel_y        (raw_y - 12'd120),  // M1: move the 2x2 grid down (240 tall -> vertically centred)
-    .focus_index    (thumb_mode_en ? thumb_focus : reader_index),
+    .pixel_y        (raw_y - 12'd120),
+    .focus_index    (reader_index),
     .image_complete (loader_image_complete_seg),
-    .thumb_de       (thumb_de),
+    .thumb_de       (),
     .source_index   (thumb_src_index),
     .source_x       (thumb_src_x),
     .source_y       (thumb_src_y),
@@ -1190,16 +1185,9 @@ promax_audio_waveform #(
 // ===== main menu: 2FF sync into video_clk, draw on top of everything =====
 wire       ui_menu_vid;
 wire       ui_thumb_vid;
-wire       ui_focus_toggle_v;
-reg        ui_focus_toggle_d;
-always @(posedge video_clk or negedge video_rst_n)
-    if (!video_rst_n) thumb_focus <= 2'd0;
-    else begin ui_focus_toggle_d <= ui_focus_toggle_v;
-        if (ui_focus_toggle_v ^ ui_focus_toggle_d) thumb_focus <= thumb_focus + 2'd1; end
 wire [1:0] ui_sel_vid;
 sync_2ff u_ui_menu_sync  (.clk(video_clk), .rst_n(video_rst_n), .async_in(ui_menu_sd),    .sync_out(ui_menu_vid));
 sync_2ff u_ui_thumb_sync (.clk(video_clk), .rst_n(video_rst_n), .async_in(ui_thumb_sd), .sync_out(ui_thumb_vid));
-sync_2ff u_ui_focus_sync (.clk(video_clk), .rst_n(video_rst_n), .async_in(ui_focus_toggle), .sync_out(ui_focus_toggle_v));
 sync_2ff u_ui_sel_sync0  (.clk(video_clk), .rst_n(video_rst_n), .async_in(ui_sel_sd[0]),  .sync_out(ui_sel_vid[0]));
 sync_2ff u_ui_sel_sync1  (.clk(video_clk), .rst_n(video_rst_n), .async_in(ui_sel_sd[1]),  .sync_out(ui_sel_vid[1]));
 
@@ -1217,7 +1205,6 @@ main_menu u_main_menu (
 );
 assign vout_data = (frame_ready_vid | ui_menu_vid) ? vout_data_menu : 24'd0;
 wire [23:0] vout_data_br;
-wire [23:0] vout_data_fin;   // selected-thumbnail border overlay
 // brightness (from the EC11 level) + contrast (fixed 128 = identity for now)
 // level 0..16 -> brightness 0..255 : *16, clamped (level 16 -> 255, 0.4% off 1.0)
 
@@ -1293,7 +1280,7 @@ video_rgb_to_axis_640x480 u_video_rgb_to_axis_640x480(
     .I_rst         (~video_rst_n),
     .I_vs          (vs),
     .I_de          (de),
-    .I_rgb         (thumb_mode_en ? (thumb_de ? (thumb_focus_border ? thumb_brd : vout_data_br) : 24'h101418) : vout_data_br),
+    .I_rgb         (((thumb_mode_en & thumb_focus_border) ? 24'hFFF04D : vout_data_br)),
     .O_video_user  (axis_s_user),
     .O_video_valid (axis_s_valid),
     .O_video_last  (axis_s_last),
