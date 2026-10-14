@@ -911,7 +911,7 @@ thumbnail_layout #(
 ) u_thumbnail_layout (
     .in_de          (raw_de),
     .pixel_x        (raw_x),
-    .pixel_y        (raw_y),
+    .pixel_y        (raw_y - 12'd120),  // M1: move the 2x2 grid down (240 tall -> vertically centred)
     .focus_index    (thumb_mode_en ? thumb_focus : reader_index),
     .image_complete (loader_image_complete_seg),
     .thumb_de       (),
@@ -1213,6 +1213,7 @@ main_menu u_main_menu (
 );
 assign vout_data = (frame_ready_vid | ui_menu_vid) ? vout_data_menu : 24'd0;
 wire [23:0] vout_data_br;
+wire [23:0] vout_data_fin;   // selected-thumbnail border overlay
 // brightness (from the EC11 level) + contrast (fixed 128 = identity for now)
 // level 0..16 -> brightness 0..255 : *16, clamped (level 16 -> 255, 0.4% off 1.0)
 
@@ -1288,7 +1289,7 @@ video_rgb_to_axis_640x480 u_video_rgb_to_axis_640x480(
     .I_rst         (~video_rst_n),
     .I_vs          (vs),
     .I_de          (de),
-    .I_rgb         (vout_data_br),
+    .I_rgb         ((thumb_mode_en & thumb_focus_border) ? 24'hFFF04D : vout_data_br),
     .O_video_user  (axis_s_user),
     .O_video_valid (axis_s_valid),
     .O_video_last  (axis_s_last),
