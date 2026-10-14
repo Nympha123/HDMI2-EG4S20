@@ -556,6 +556,7 @@ assign wav_sector_lba = wav_find_found ? wav_play_lba : wav_find_lba;
 // (WAV ????? FAT32 ???????)
 // ===== main menu control (sd_card_clk) + KEY1/KEY2 masking while the menu is up =====
 wire       ui_menu_sd;
+wire       ui_thumb_sd;
 wire [1:0] ui_sel_sd;
 main_menu_ctrl #(
     .CLK_FREQ_HZ   (50_000_000),
@@ -567,6 +568,7 @@ main_menu_ctrl #(
     .key2        (key2),
     .key3        (key3),
     .menu_active (ui_menu_sd),
+    .thumb_ui    (ui_thumb_sd),
     .sel         (ui_sel_sd)
 );
 wire ui_key1 = ui_menu_sd ? 1'b1 : key1;
@@ -888,7 +890,7 @@ always @(posedge video_clk or negedge video_rst_n) begin
 end
 
 // ===== Lesson-13 M1: thumbnail coordinate mapping + point-read request =====
-wire        thumb_mode_en = 1'b0;            // entry switches this in the next step
+wire        thumb_mode_en = ui_thumb_vid;    // M1: menu item 4 (thumbnail) drives this            // entry switches this in the next step
 wire [1:0]  thumb_src_index;
 wire [9:0]  thumb_src_x, thumb_src_y;
 wire        thumb_focus_border;
@@ -1182,8 +1184,10 @@ promax_audio_waveform #(
 );
 // ===== main menu: 2FF sync into video_clk, draw on top of everything =====
 wire       ui_menu_vid;
+wire       ui_thumb_vid;
 wire [1:0] ui_sel_vid;
 sync_2ff u_ui_menu_sync  (.clk(video_clk), .rst_n(video_rst_n), .async_in(ui_menu_sd),    .sync_out(ui_menu_vid));
+sync_2ff u_ui_thumb_sync (.clk(video_clk), .rst_n(video_rst_n), .async_in(ui_thumb_sd), .sync_out(ui_thumb_vid));
 sync_2ff u_ui_sel_sync0  (.clk(video_clk), .rst_n(video_rst_n), .async_in(ui_sel_sd[0]),  .sync_out(ui_sel_vid[0]));
 sync_2ff u_ui_sel_sync1  (.clk(video_clk), .rst_n(video_rst_n), .async_in(ui_sel_sd[1]),  .sync_out(ui_sel_vid[1]));
 

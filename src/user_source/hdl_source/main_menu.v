@@ -516,7 +516,8 @@ module main_menu_ctrl #(
     input  wire       key2,         // KEY2：短按下移
     input  wire       key3,         // KEY3：短按下移 / 长按确定
     output reg        menu_active,  // 1 = 主菜单
-    output reg  [1:0] sel           // 0..2
+    output reg  [1:0] sel,
+    output reg        thumb_ui       // 1 = thumbnail screen is active           // 0..2
 );
 
     localparam integer DB_CYC = (CLK_FREQ_HZ / 1000) * DEBOUNCE_MS;
@@ -629,21 +630,22 @@ module main_menu_ctrl #(
     always @(posedge clk or posedge rst) begin
         if (rst) begin
             lp_done_d   <= 1'b0;
-            menu_active <= 1'b1;      // 上电先进主菜单
-            sel         <= 2'd0;
+            menu_active <= 1'b1;            sel         <= 2'd0;
+            thumb_ui    <= 1'b0;
         end else begin
             lp_done_d <= lp_done;
             if (menu_active) begin
                 if (k3_confirm) begin
                     if (sel == 2'd0)
-                        menu_active <= 1'b0;      // 「开始」-> 进入图片界面
+                        menu_active <= 1'b0;
+                    else if (sel == 2'd3) begin thumb_ui <= 1'b1; menu_active <= 1'b0; end      // 「开始」-> 进入图片界面
                     // 其余两项暂无功能：保持主菜单不动
                 end else if (step_down) begin
-                    sel <= (sel == 2'd2) ? 2'd0 : (sel + 2'd1);
+                    sel <= (sel == 2'd3) ? 2'd0 : (sel + 2'd1);
                 end
             end else begin
-                if (k3_press)
-                    menu_active <= 1'b1;          // 图片界面 KEY3 短按 -> 回主菜单
+                if (thumb_ui && k3_confirm) thumb_ui <= 1'b0;
+                else if (k3_press) menu_active <= 1'b1;          // 图片界面 KEY3 短按 -> 回主菜单
             end
         end
     end
