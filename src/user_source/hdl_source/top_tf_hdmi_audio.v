@@ -557,6 +557,7 @@ assign wav_sector_lba = wav_find_found ? wav_play_lba : wav_find_lba;
 // ===== main menu control (sd_card_clk) + KEY1/KEY2 masking while the menu is up =====
 wire       ui_menu_sd;
 wire       ui_thumb_sd;
+wire       ui_focus_step;
 wire [1:0] ui_sel_sd;
 main_menu_ctrl #(
     .CLK_FREQ_HZ   (50_000_000),
@@ -569,6 +570,7 @@ main_menu_ctrl #(
     .key3        (key3),
     .menu_active (ui_menu_sd),
     .thumb_ui    (ui_thumb_sd),
+    .focus_step  (ui_focus_step),
     .sel         (ui_sel_sd)
 );
 wire ui_key1 = ui_menu_sd ? 1'b1 : key1;
@@ -892,6 +894,7 @@ end
 // ===== Lesson-13 M1: thumbnail coordinate mapping + point-read request =====
 wire        thumb_mode_en = ui_thumb_vid;    // M1: menu item 4 (thumbnail) drives this            // entry switches this in the next step
 wire [1:0]  thumb_src_index;
+reg  [1:0]  thumb_focus;      // 0..3 selected thumbnail
 wire [9:0]  thumb_src_x, thumb_src_y;
 wire        thumb_focus_border;
 reg  [1:0]  thumb_req_div;
@@ -909,7 +912,7 @@ thumbnail_layout #(
     .in_de          (raw_de),
     .pixel_x        (raw_x),
     .pixel_y        (raw_y),
-    .focus_index    (reader_index),
+    .focus_index    (thumb_mode_en ? thumb_focus : reader_index),
     .image_complete (loader_image_complete_seg),
     .thumb_de       (),
     .source_index   (thumb_src_index),
@@ -1185,9 +1188,14 @@ promax_audio_waveform #(
 // ===== main menu: 2FF sync into video_clk, draw on top of everything =====
 wire       ui_menu_vid;
 wire       ui_thumb_vid;
+wire       ui_focus_step_v;
+always @(posedge video_clk or negedge video_rst_n)
+    if (!video_rst_n) thumb_focus <= 2'd0;
+    else if (ui_focus_step_v) thumb_focus <= thumb_focus + 2'd1;
 wire [1:0] ui_sel_vid;
 sync_2ff u_ui_menu_sync  (.clk(video_clk), .rst_n(video_rst_n), .async_in(ui_menu_sd),    .sync_out(ui_menu_vid));
 sync_2ff u_ui_thumb_sync (.clk(video_clk), .rst_n(video_rst_n), .async_in(ui_thumb_sd), .sync_out(ui_thumb_vid));
+sync_2ff u_ui_focus_sync (.clk(video_clk), .rst_n(video_rst_n), .async_in(ui_focus_step), .sync_out(ui_focus_step_v));
 sync_2ff u_ui_sel_sync0  (.clk(video_clk), .rst_n(video_rst_n), .async_in(ui_sel_sd[0]),  .sync_out(ui_sel_vid[0]));
 sync_2ff u_ui_sel_sync1  (.clk(video_clk), .rst_n(video_rst_n), .async_in(ui_sel_sd[1]),  .sync_out(ui_sel_vid[1]));
 
