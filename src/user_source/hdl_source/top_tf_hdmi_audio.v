@@ -887,6 +887,34 @@ always @(posedge video_clk or negedge video_rst_n) begin
     end
 end
 
+// ===== Lesson-13 M1: thumbnail coordinate mapping + point-read request =====
+wire        thumb_mode_en = 1'b0;            // entry switches this in the next step
+wire [1:0]  thumb_src_index;
+wire [9:0]  thumb_src_x, thumb_src_y;
+wire        thumb_focus_border;
+reg  [1:0]  thumb_req_div;
+wire        thumb_req = thumb_mode_en & raw_de & (thumb_req_div == 2'd3);
+always @(posedge video_clk or negedge video_rst_n)
+    if (!video_rst_n) thumb_req_div <= 2'd0;
+    else if (raw_de)  thumb_req_div <= thumb_req_div + 2'd1;
+
+thumbnail_layout #(
+    .DISPLAY_WIDTH  (640),
+    .DISPLAY_HEIGHT (480),
+    .THUMB_WIDTH    (160),
+    .THUMB_HEIGHT   (120)
+) u_thumbnail_layout (
+    .in_de          (raw_de),
+    .pixel_x        (raw_x),
+    .pixel_y        (raw_y),
+    .focus_index    (reader_index),
+    .image_complete (loader_image_complete_seg),
+    .thumb_de       (),
+    .source_index   (thumb_src_index),
+    .source_x       (thumb_src_x),
+    .source_y       (thumb_src_y),
+    .focus_border   (thumb_focus_border)
+);
 media_frame_reader #(
     .ADDR_WIDTH         (ADDR_BITS),
     .IMAGE_WORDS        (FRAME_PIXELS),
@@ -911,11 +939,11 @@ media_frame_reader #(
     .pix_rst_n            (video_rst_n),
     .frame_start          (reader_frame_start),
     .active_index         (active_index_vid2),
-    .thumb_mode      (1'b0),                 // M1 step 1: capability only, no entry yet
-    .thumb_req       (1'b0),
-    .src_index       (2'b0),
-    .src_x           (10'd0),
-    .src_y           (10'd0),
+    .thumb_mode      (thumb_mode_en),                                   // M1 step 3: still 0, entry next step
+    .thumb_req       (thumb_req),
+    .src_index       (thumb_mode_en ? thumb_src_index : active_index_vid2),
+    .src_x           (thumb_mode_en ? thumb_src_x : raw_x),
+    .src_y           (thumb_mode_en ? thumb_src_y : raw_y),
     .pixel_consume        (reader_pixel_consume),
     .pixel_rgb            (reader_pixel_rgb),
     .pixel_valid          (reader_pixel_valid),
