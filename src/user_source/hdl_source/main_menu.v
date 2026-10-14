@@ -42,12 +42,12 @@ module main_menu (
     localparam [11:0] BTN_X0   = 12'd56;    // 按钮基准矩形
     localparam [11:0] BTN_X1   = 12'd400;
     localparam [11:0] BTN_Y0   = 12'd130;
-    localparam [11:0] BTN_DY   = 12'd98;    // 行距：130 / 228 / 326
-    localparam [11:0] BTN_H    = 12'd76;
+    localparam [11:0] BTN_DY   = 12'd72;    // 行距：130 / 228 / 326
+    localparam [11:0] BTN_H    = 12'd62;
     localparam [11:0] SPX      = 12'd8;     // 选中时左右外扩
     localparam [11:0] SPY      = 12'd5;     // 选中时上下外扩
-    localparam [11:0] RC_N     = 12'd38;    // 普通圆角半径 = 半高 -> 胶囊（半圆端）
-    localparam [11:0] RC_S     = 12'd43;    // 选中圆角半径 = 半高
+    localparam [11:0] RC_N     = 12'd31;    // 普通圆角半径 = 半高 -> 胶囊（半圆端）
+    localparam [11:0] RC_S     = 12'd36;    // 选中圆角半径 = 半高
     localparam [11:0] LBL_DY   = 12'd30;    // 文字相对按钮顶部的偏移
     localparam [11:0] LBL_CX   = 12'd250;   // 文字组中心（按钮内文字区）
 

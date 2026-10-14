@@ -1,3 +1,4 @@
 char	slot	code_for_text_vector
-对	0xC7	8'hC7
-比	0xC8	8'hC8
+缩	0xC9	8'hC9
+略	0xCA	8'hCA
+图	0xCB	8'hCB
