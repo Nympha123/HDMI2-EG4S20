@@ -22,13 +22,13 @@ module page_view (
     output reg  [23:0] rgb_out
 );
     // window: 320 x 240, left side, vertically centred
-    localparam [11:0] WXN = 12'd320;
-    localparam [11:0] WY0 = 12'd120;
-    localparam [11:0] WYN = 12'd240;
+    localparam [11:0] WXN = 12'd480;
+    localparam [11:0] WY0 = 12'd60;
+    localparam [11:0] WYN = 12'd360;
 
     // title: 4 glyphs of 16x16 at x 360..423, y 190
-    localparam [11:0] TX0 = 12'd360;
-    localparam [11:0] TY0 = 12'd190;
+    localparam [11:0] TX0 = 12'd500;
+    localparam [11:0] TY0 = 12'd232;
 
     wire in_win = enable & (px < WXN) & (py >= WY0) & (py < (WY0 + WYN));
 
