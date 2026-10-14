@@ -1,4 +1,4 @@
-﻿
+
 module top(
     input                       clk,
     input                       rst_n,
@@ -911,6 +911,11 @@ media_frame_reader #(
     .pix_rst_n            (video_rst_n),
     .frame_start          (reader_frame_start),
     .active_index         (active_index_vid2),
+    .thumb_mode      (1'b0),                 // M1 step 1: capability only, no entry yet
+    .thumb_req       (1'b0),
+    .src_index       (2'b0),
+    .src_x           (10'd0),
+    .src_y           (10'd0),
     .pixel_consume        (reader_pixel_consume),
     .pixel_rgb            (reader_pixel_rgb),
     .pixel_valid          (reader_pixel_valid),
