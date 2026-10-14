@@ -1291,7 +1291,7 @@ video_rgb_to_axis_640x480 u_video_rgb_to_axis_640x480(
     .I_rst         (~video_rst_n),
     .I_vs          (vs),
     .I_de          (de),
-    .I_rgb         ((thumb_mode_en & thumb_focus_border) ? 24'hFFF04D : vout_data_br),
+    .I_rgb         ((thumb_mode_en & thumb_focus_border) ? (thumb_focus == 2'd0 ? 24'hFFFFFF : thumb_focus == 2'd1 ? 24'hFFF04D : thumb_focus == 2'd2 ? 24'h00FF00 : 24'hFF00FF) : vout_data_br),
     .O_video_user  (axis_s_user),
     .O_video_valid (axis_s_valid),
     .O_video_last  (axis_s_last),
