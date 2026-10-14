@@ -754,7 +754,7 @@ seg_decoder seg_decoder_fscnt (
     .bin_data          (loader_image_complete_seg),
     .seg_data          (seg_fscnt_bits)
 );
-assign reader_pixel_consume = raw_de & (~thumb_mode_en | (thumb_req_div == 2'd3));   // thumb mode: consume 1 source pixel per 4 display pixels (x4 zoom for free)
+assign reader_pixel_consume = thumb_mode_en ? page_consume : raw_de;   // thumb mode: consume 1 source pixel per 4 display pixels (x4 zoom for free)
 
 // ===================== ??????????????????????????????????????? ????????? bank ?????????====================
 assign ctrl_next_event        = fade_next_event;   // ????????????????????????
@@ -920,6 +920,20 @@ always @(posedge video_clk or negedge video_rst_n)
     if (!video_rst_n) thumb_req_div <= 2'd0;
     else if (raw_de)  thumb_req_div <= thumb_req_div + 2'd1;
 
+// ===== M1 page view: one image per page (left, centred) + title column on the right =====
+wire [23:0] page_rgb;
+wire        page_consume;
+page_view u_page_view (
+    .clk     (video_clk),
+    .rst_n   (video_rst_n),
+    .enable  (thumb_mode_en),
+    .de      (raw_de),
+    .px      (raw_x),
+    .py      (raw_y),
+    .rgb_in  (reader_pixel_rgb),
+    .consume (page_consume),
+    .rgb_out (page_rgb)
+);
 thumbnail_layout #(
     .DISPLAY_WIDTH  (640),
     .DISPLAY_HEIGHT (480),
@@ -961,7 +975,7 @@ media_frame_reader #(
     .pix_rst_n            (video_rst_n),
     .frame_start          (reader_frame_start),
     .active_index         (active_index_vid2),
-    .thumb_mode      (thumb_mode_en),                                   // M1 step 3: still 0, entry next step
+    .thumb_mode      (1'b0),                        // page view keeps the reader streaming normally                                   // M1 step 3: still 0, entry next step
     .thumb_req       (thumb_req),
     .src_index       (thumb_mode_en ? thumb_src_index : active_index_vid2),
     .src_x           (thumb_mode_en ? thumb_src_x : raw_x),
@@ -984,7 +998,7 @@ rgb_video_adapter u_rgb_video_adapter (
     .hs_in     (raw_hs),
     .vs_in     (raw_vs),
     .de_in     (raw_de & reader_pixel_valid),
-    .rgb_in    (reader_pixel_rgb),
+    .rgb_in    (thumb_mode_en ? page_rgb : reader_pixel_rgb),
     .video_clk (video_clk_out),
     .video_hs  (hs),
     .video_vs  (vs),
