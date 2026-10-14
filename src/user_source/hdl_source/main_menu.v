@@ -648,7 +648,7 @@ module main_menu_ctrl #(
             end else begin
                 if (thumb_ui && k3_confirm) thumb_ui <= 1'b0;
                 else if (thumb_ui && step_down) focus_toggle <= ~focus_toggle;
-                else if (k3_press) menu_active <= 1'b1;          // 图片界面 KEY3 短按 -> 回主菜单
+                else if (!thumb_ui && k3_press) menu_active <= 1'b1;          // 图片界面 KEY3 短按 -> 回主菜单
             end
         end
     end

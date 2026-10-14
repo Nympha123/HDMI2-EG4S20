@@ -896,9 +896,11 @@ wire        thumb_mode_en = ui_thumb_vid;    // M1: menu item 4 (thumbnail) driv
 wire [1:0]  thumb_src_index;
 reg  [1:0]  thumb_focus;      // 0..3 selected thumbnail
 wire [9:0]  thumb_src_x, thumb_src_y;
+wire        thumb_de;
+wire [23:0] thumb_brd = (thumb_focus == 2'd0) ? 24'hFFFFFF : (thumb_focus == 2'd1) ? 24'hFFF04D : (thumb_focus == 2'd2) ? 24'h00FF00 : 24'hFF00FF;
 wire        thumb_focus_border;
 reg  [1:0]  thumb_req_div;
-wire        thumb_req = thumb_mode_en & raw_de & (thumb_req_div == 2'd3);
+wire        thumb_req = thumb_mode_en & raw_de & thumb_de & (thumb_req_div == 2'd3);
 always @(posedge video_clk or negedge video_rst_n)
     if (!video_rst_n) thumb_req_div <= 2'd0;
     else if (raw_de)  thumb_req_div <= thumb_req_div + 2'd1;
@@ -914,7 +916,7 @@ thumbnail_layout #(
     .pixel_y        (raw_y - 12'd120),  // M1: move the 2x2 grid down (240 tall -> vertically centred)
     .focus_index    (thumb_mode_en ? thumb_focus : reader_index),
     .image_complete (loader_image_complete_seg),
-    .thumb_de       (),
+    .thumb_de       (thumb_de),
     .source_index   (thumb_src_index),
     .source_x       (thumb_src_x),
     .source_y       (thumb_src_y),
@@ -1291,7 +1293,7 @@ video_rgb_to_axis_640x480 u_video_rgb_to_axis_640x480(
     .I_rst         (~video_rst_n),
     .I_vs          (vs),
     .I_de          (de),
-    .I_rgb         ((thumb_mode_en & thumb_focus_border) ? (thumb_focus == 2'd0 ? 24'hFFFFFF : thumb_focus == 2'd1 ? 24'hFFF04D : thumb_focus == 2'd2 ? 24'h00FF00 : 24'hFF00FF) : vout_data_br),
+    .I_rgb         (thumb_mode_en ? (thumb_de ? (thumb_focus_border ? thumb_brd : vout_data_br) : 24'h101418) : vout_data_br),
     .O_video_user  (axis_s_user),
     .O_video_valid (axis_s_valid),
     .O_video_last  (axis_s_last),
