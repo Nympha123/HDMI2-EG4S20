@@ -1,4 +1,4 @@
-
+﻿
 module spi_master
 (
 	input                       sys_clk,

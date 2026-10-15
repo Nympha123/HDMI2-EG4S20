@@ -1,4 +1,4 @@
-module  ax_debounce 
+﻿module  ax_debounce 
 (
     input       clk, 
     input       rst, 

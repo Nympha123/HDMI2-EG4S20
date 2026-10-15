@@ -1,4 +1,4 @@
-module video_delay
+﻿module video_delay
 #(
 	parameter DATA_WIDTH = 24                       // Video data one clock data width
 )

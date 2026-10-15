@@ -1,4 +1,4 @@
-`timescale 1ns/1ps
+﻿`timescale 1ns/1ps
 
 module fat32_file_streamer #(
     parameter integer MAX_VISITED_CLUSTERS = 8192

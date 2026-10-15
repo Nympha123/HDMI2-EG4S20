@@ -1,4 +1,4 @@
-
+﻿
 `include "video_define.v"
 module color_bar(
 	input                 clk,           //pixel clock

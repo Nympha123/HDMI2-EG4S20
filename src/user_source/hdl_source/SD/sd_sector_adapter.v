@@ -1,4 +1,4 @@
-`timescale 1ns/1ps
+﻿`timescale 1ns/1ps
 
 // SD card sector interface adapter from the lesson 7 reference.
 module sd_sector_adapter (

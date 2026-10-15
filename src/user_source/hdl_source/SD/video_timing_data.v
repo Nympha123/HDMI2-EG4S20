@@ -1,4 +1,4 @@
-module video_timing_data
+﻿module video_timing_data
 #(
 	parameter DATA_WIDTH = 16                       // Video data one clock data width
 )
