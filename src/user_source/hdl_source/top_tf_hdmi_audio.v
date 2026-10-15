@@ -556,7 +556,6 @@ assign wav_sector_lba = wav_find_found ? wav_play_lba : wav_find_lba;
 // (WAV ????? FAT32 ???????)
 // ===== main menu control (sd_card_clk) + KEY1/KEY2 masking while the menu is up =====
 wire       ui_menu_sd;
-wire       ui_thumb_sd;
 wire [1:0] ui_sel_sd;
 main_menu_ctrl #(
     .CLK_FREQ_HZ   (50_000_000),
@@ -568,7 +567,6 @@ main_menu_ctrl #(
     .key2        (key2),
     .key3        (key3),
     .menu_active (ui_menu_sd),
-    .thumb_ui    (ui_thumb_sd),
     .sel         (ui_sel_sd)
 );
 wire ui_key1 = ui_menu_sd ? 1'b1 : key1;
@@ -754,7 +752,7 @@ seg_decoder seg_decoder_fscnt (
     .bin_data          (loader_image_complete_seg),
     .seg_data          (seg_fscnt_bits)
 );
-assign reader_pixel_consume = thumb_mode_en ? page_consume : raw_de;   // thumb mode: consume 1 source pixel per 4 display pixels (x4 zoom for free)
+assign reader_pixel_consume = raw_de;
 
 // ===================== ??????????????????????????????????????? ????????? bank ?????????====================
 assign ctrl_next_event        = fade_next_event;   // ????????????????????????
@@ -889,47 +887,45 @@ always @(posedge video_clk or negedge video_rst_n) begin
     end
 end
 
-// ===== Lesson-13 M1: thumbnail coordinate mapping + point-read request =====
-wire        thumb_mode_en = ui_thumb_vid;                // page view entered from the main menu only    // M1: menu item 4 (thumbnail) drives this            // entry switches this in the next step
-wire [1:0]  thumb_src_index;
-wire [9:0]  thumb_src_x, thumb_src_y;
-wire        thumb_focus_border;
-reg  [1:0]  thumb_req_div;
-wire        thumb_req = thumb_mode_en & raw_de & (thumb_req_div == 2'd3);
-always @(posedge video_clk or negedge video_rst_n)
-    if (!video_rst_n) thumb_req_div <= 2'd0;
-    else if (raw_de)  thumb_req_div <= thumb_req_div + 2'd1;
+// ===== page view entry: EC11 long press (~0.8 s at video_clk 25 MHz) =====
+//   enc_key is the raw EC11 push pin (active low). The counter only runs after the pin has
+//   been seen HIGH once, so a low pin at power-up can no longer put the board straight into
+//   page mode (that was the earlier failure). Long press toggles page mode.
+reg        page_mode;
+reg        lp_armed;
+reg [24:0] lp_cnt;
+always @(posedge video_clk or negedge video_rst_n) begin
+    if (!video_rst_n) begin
+        page_mode <= 1'b0;
+        lp_armed  <= 1'b0;
+        lp_cnt    <= 25'd0;
+    end else begin
+        if (enc_key) begin
+            lp_armed <= 1'b1;
+            lp_cnt   <= 25'd0;
+        end else if (lp_armed) begin
+            if (lp_cnt < 25'd20_000_000)
+                lp_cnt <= lp_cnt + 1'b1;
+            else begin
+                lp_cnt    <= 25'd20_000_001;
+                page_mode <= ~page_mode;
+            end
+        end
+    end
+end
 
-// ===== M1 page view: one image per page (left, centred) + title column on the right =====
+// ===== page view: one image per page (left, centred) + title column on the right =====
 wire [23:0] page_rgb;
-wire        page_consume;
 page_view u_page_view (
     .clk     (video_clk),
     .rst_n   (video_rst_n),
-    .enable  (thumb_mode_en),
+    .enable  (page_mode),
     .de      (raw_de),
     .px      (raw_x),
     .py      (raw_y),
     .rgb_in  (reader_pixel_rgb),
-    .consume (page_consume),
+    .consume (),
     .rgb_out (page_rgb)
-);
-thumbnail_layout #(
-    .DISPLAY_WIDTH  (640),
-    .DISPLAY_HEIGHT (480),
-    .THUMB_WIDTH    (160),
-    .THUMB_HEIGHT   (120)
-) u_thumbnail_layout (
-    .in_de          (raw_de),
-    .pixel_x        (raw_x),
-    .pixel_y        (raw_y - 12'd120),
-    .focus_index    (reader_index),
-    .image_complete (loader_image_complete_seg),
-    .thumb_de       (),
-    .source_index   (thumb_src_index),
-    .source_x       (thumb_src_x),
-    .source_y       (thumb_src_y),
-    .focus_border   (thumb_focus_border)
 );
 media_frame_reader #(
     .ADDR_WIDTH         (ADDR_BITS),
@@ -955,11 +951,6 @@ media_frame_reader #(
     .pix_rst_n            (video_rst_n),
     .frame_start          (reader_frame_start),
     .active_index         (active_index_vid2),
-    .thumb_mode      (1'b0),                        // page view keeps the reader streaming normally                                   // M1 step 3: still 0, entry next step
-    .thumb_req       (thumb_req),
-    .src_index       (thumb_mode_en ? thumb_src_index : active_index_vid2),
-    .src_x           (thumb_mode_en ? thumb_src_x : raw_x),
-    .src_y           (thumb_mode_en ? thumb_src_y : raw_y),
     .pixel_consume        (reader_pixel_consume),
     .pixel_rgb            (reader_pixel_rgb),
     .pixel_valid          (reader_pixel_valid),
@@ -978,7 +969,7 @@ rgb_video_adapter u_rgb_video_adapter (
     .hs_in     (raw_hs),
     .vs_in     (raw_vs),
     .de_in     (raw_de & reader_pixel_valid),
-    .rgb_in    (thumb_mode_en ? page_rgb : reader_pixel_rgb),
+    .rgb_in    (page_mode ? page_rgb : reader_pixel_rgb),
     .video_clk (video_clk_out),
     .video_hs  (hs),
     .video_vs  (vs),
@@ -1117,9 +1108,8 @@ subtitle_frame_commit u_subtitle_frame_commit (
 
 // ??????????????? OSD ???????? frame_ready_vid ???
 wire [23:0] vout_data_sub;
-// M1: in the thumbnail screen the info bands (top bar / gold line / subtitles / bottom bar)
-// are hidden so the four thumbnails are not covered.
-wire [23:0] sub_or_thumb = thumb_mode_en ? vout_data_osd : vout_data_sub;
+// page view: the info bands (top bar / gold line / subtitles / bottom bar) are hidden there
+wire [23:0] sub_or_page = page_mode ? vout_data_osd : vout_data_sub;
 // ===== EC11 rotary encoder -> brightness level (video_clk domain) =====
 wire [4:0] bright_level;
 wire       enc_key_pulse;
@@ -1191,7 +1181,7 @@ promax_audio_waveform #(
     .rst_n           (video_rst_n),
     .vsync           (vs),
     .de              (raw_de),
-    .rgb_in         (sub_or_thumb),
+    .rgb_in         (sub_or_page),
     .pixel_x         (raw_x[9:0]),
     .enable          (wav_active),        // option C: show only while WAV plays
     .pcm_tap_valid   (wav_sample_valid),
@@ -1201,10 +1191,8 @@ promax_audio_waveform #(
 );
 // ===== main menu: 2FF sync into video_clk, draw on top of everything =====
 wire       ui_menu_vid;
-wire       ui_thumb_vid;
 wire [1:0] ui_sel_vid;
 sync_2ff u_ui_menu_sync  (.clk(video_clk), .rst_n(video_rst_n), .async_in(ui_menu_sd),    .sync_out(ui_menu_vid));
-sync_2ff u_ui_thumb_sync (.clk(video_clk), .rst_n(video_rst_n), .async_in(ui_thumb_sd), .sync_out(ui_thumb_vid));
 sync_2ff u_ui_sel_sync0  (.clk(video_clk), .rst_n(video_rst_n), .async_in(ui_sel_sd[0]),  .sync_out(ui_sel_vid[0]));
 sync_2ff u_ui_sel_sync1  (.clk(video_clk), .rst_n(video_rst_n), .async_in(ui_sel_sd[1]),  .sync_out(ui_sel_vid[1]));
 

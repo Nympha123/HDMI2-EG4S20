@@ -42,12 +42,12 @@ module main_menu (
     localparam [11:0] BTN_X0   = 12'd56;    // 按钮基准矩形
     localparam [11:0] BTN_X1   = 12'd400;
     localparam [11:0] BTN_Y0   = 12'd130;
-    localparam [11:0] BTN_DY   = 12'd72;    // 行距：130 / 228 / 326
-    localparam [11:0] BTN_H    = 12'd62;
+    localparam [11:0] BTN_DY   = 12'd98;    // 行距：130 / 228 / 326
+    localparam [11:0] BTN_H    = 12'd76;
     localparam [11:0] SPX      = 12'd8;     // 选中时左右外扩
     localparam [11:0] SPY      = 12'd5;     // 选中时上下外扩
-    localparam [11:0] RC_N     = 12'd31;    // 普通圆角半径 = 半高 -> 胶囊（半圆端）
-    localparam [11:0] RC_S     = 12'd36;    // 选中圆角半径 = 半高
+    localparam [11:0] RC_N     = 12'd38;    // 普通圆角半径 = 半高 -> 胶囊（半圆端）
+    localparam [11:0] RC_S     = 12'd43;    // 选中圆角半径 = 半高
     localparam [11:0] LBL_DY   = 12'd30;    // 文字相对按钮顶部的偏移
     localparam [11:0] LBL_CX   = 12'd250;   // 文字组中心（按钮内文字区）
 
@@ -62,13 +62,11 @@ module main_menu (
     localparam [23:0] C_TITLE   = 24'h5B4BC4;
     localparam [23:0] C_BTN0    = 24'h45CEE4;   // 开始   青
     localparam [23:0] C_BTN1    = 24'hF0C64B;   // 二号   黄
-    localparam [23:0] C_BTN2    = 24'h8A79E6;
-    localparam [23:0] C_BTN3    = 24'h6AB17D;   // 4th item (thumbnail), green   // 三号   紫
+    localparam [23:0] C_BTN2    = 24'h8A79E6;   // 三号   紫
     // 未选中 = 基色向白淡化： 每通道 (c>>1)+0x60（比 +0x80 略深，浅底上更清楚）
     localparam [23:0] C_BTN0_P  = 24'h82C7D2;
     localparam [23:0] C_BTN1_P  = 24'hD8C385;
     localparam [23:0] C_BTN2_P  = 24'hA59CD3;
-    localparam [23:0] C_BTN3_P  = 24'hA5D3B8;
     localparam [23:0] C_TXT_SEL = 24'hFFFFFF;
     localparam [23:0] C_TXT_OFF = 24'h4A4463;
     localparam [23:0] C_GLOW    = 24'hFFFFFF;
@@ -228,8 +226,6 @@ module main_menu (
     wire [11:0] lby_0 = BTN_Y0 + LBL_DY;
     wire [11:0] lby_1 = BTN_Y0 + BTN_DY + LBL_DY;
     wire [11:0] lby_2 = BTN_Y0 + BTN_DY + BTN_DY + LBL_DY;
-    wire [11:0] lby_3 = BTN_Y0 + BTN_DY + BTN_DY + BTN_DY + LBL_DY;
-    wire [11:0] lbx_3 = lbx_1 - 12'd8;   // 3 chars: shift half a char left
 
     wire [11:0] l0x = pixel_x - lbx_0;
     wire [11:0] l1x = pixel_x - lbx_1;
@@ -237,8 +233,6 @@ module main_menu (
     wire [11:0] l0y = pixel_y - lby_0;
     wire [11:0] l1y = pixel_y - lby_1;
     wire [11:0] l2y = pixel_y - lby_2;
-    wire [11:0] l3x = pixel_x - lbx_3;
-    wire [11:0] l3y = pixel_y - lby_3;
 
     wire in_lbl0 = (pixel_x >= lbx_0) && (pixel_x < (lbx_0 + 12'd32)) &&
                    (pixel_y >= lby_0) && (pixel_y < (lby_0 + 12'd16));
@@ -246,8 +240,6 @@ module main_menu (
                    (pixel_y >= lby_1) && (pixel_y < (lby_1 + 12'd16));
     wire in_lbl2 = (pixel_x >= lbx_1) && (pixel_x < (lbx_1 + 12'd64)) &&
                    (pixel_y >= lby_2) && (pixel_y < (lby_2 + 12'd16));
-    wire in_lbl3 = (pixel_x >= lbx_3) && (pixel_x < (lbx_3 + 12'd48)) &&
-                   (pixel_y >= lby_3) && (pixel_y < (lby_3 + 12'd16));
 
     wire [11:0] hlx = pixel_x - HINT_LX;
     wire [11:0] hrx = pixel_x - HINT_RX;
@@ -267,13 +259,7 @@ module main_menu (
         rom_row  = 4'h0;
         rom_col  = 4'h0;
         rom_use  = 1'b0;
-        
-        if (in_lbl3) begin
-            rom_code = (l3x[6:4] == 3'd0) ? 8'hC9 : (l3x[6:4] == 3'd1) ? 8'hCA : 8'hCB;
-            rom_row  = l3y[3:0];
-            rom_col  = l3x[3:0];
-            rom_use  = 1'b1;
-        end else if (in_title) begin
+        if (in_title) begin
             rom_code = ttl_char({6'b0, tcx[6:5]});        // 3 字
             rom_row  = tcy[4:1];                          // 2 倍放大
             rom_col  = tcx[4:1];
@@ -386,7 +372,6 @@ module main_menu (
     wire s0 = (sel == 2'd0);
     wire s1 = (sel == 2'd1);
     wire s2 = (sel == 2'd2);
-    wire s3 = (sel == 2'd3);
 
     wire [11:0] by0_0 = BTN_Y0;
     wire [11:0] by0_1 = BTN_Y0 + BTN_DY;
@@ -394,8 +379,6 @@ module main_menu (
     wire [11:0] by1_0 = BTN_Y0 + BTN_H;
     wire [11:0] by1_1 = BTN_Y0 + BTN_DY + BTN_H;
     wire [11:0] by1_2 = BTN_Y0 + BTN_DY + BTN_DY + BTN_H;
-    wire [11:0] by0_3 = BTN_Y0 + BTN_DY + BTN_DY + BTN_DY;
-    wire [11:0] by1_3 = BTN_Y0 + BTN_DY + BTN_DY + BTN_DY + BTN_H;
 
     wire [11:0] b0x0 = s0 ? (BTN_X0 - SPX) : BTN_X0;
     wire [11:0] b0x1 = s0 ? (BTN_X1 + SPX) : BTN_X1;
@@ -409,26 +392,17 @@ module main_menu (
     wire [11:0] b2x1 = s2 ? (BTN_X1 + SPX) : BTN_X1;
     wire [11:0] b2y0 = s2 ? (by0_2 - SPY)  : by0_2;
     wire [11:0] b2y1 = s2 ? (by1_2 + SPY)  : by1_2;
-    wire [11:0] b3x0 = s3 ? (BTN_X0 - SPX) : BTN_X0;
-    wire [11:0] b3x1 = s3 ? (BTN_X1 + SPX) : BTN_X1;
-    wire [11:0] b3y0 = s3 ? (by0_3 - SPY)  : by0_3;
-    wire [11:0] b3y1 = s3 ? (by1_3 + SPY)  : by1_3;
 
     wire [11:0] rc_0 = s0 ? RC_S : RC_N;
     wire [11:0] rc_1 = s1 ? RC_S : RC_N;
     wire [11:0] rc_2 = s2 ? RC_S : RC_N;
-    wire [11:0] rc_3 = s3 ? RC_S : RC_N;
 
     wire btn0 = pill_hit(dx_d, dy_d, b0x0, b0y0, b0x1, b0y1, rc_0);
     wire btn1 = pill_hit(dx_d, dy_d, b1x0, b1y0, b1x1, b1y1, rc_1);
     wire btn2 = pill_hit(dx_d, dy_d, b2x0, b2y0, b2x1, b2y1, rc_2);
-    wire btn3 = pill_hit(dx_d, dy_d, b3x0, b3y0, b3x1, b3y1, rc_3);
     wire in_btn  = btn0 | btn1 | btn2;
-    wire in_btn3 = in_btn | btn3;
     wire on_sel  = (btn0 & s0) | (btn1 & s1) | (btn2 & s2);
-    wire on_sel3 = on_sel | (btn3 & s3);
     wire on_off  = in_btn & ~on_sel;
-    wire on_off3 = in_btn3 & ~on_sel3;
 
     // 选中项光晕：比按钮再外扩 6px 的白圈
     wire [11:0] sbx0 = s0 ? b0x0 : (s1 ? b1x0 : b2x0);
@@ -451,9 +425,7 @@ module main_menu (
     wire icon  = icon0 | icon1 | icon2;
 
     wire [23:0] col_sel = (btn0 & s0) ? C_BTN0 : ((btn1 & s1) ? C_BTN1 : C_BTN2);
-    wire [23:0] col_sel3 = (btn0 & s0) ? C_BTN0 : ((btn1 & s1) ? C_BTN1 : ((btn2 & s2) ? C_BTN2 : C_BTN3));
     wire [23:0] col_off = btn0 ? C_BTN0_P : (btn1 ? C_BTN1_P : C_BTN2_P);
-    wire [23:0] col_off3 = btn0 ? C_BTN0_P : (btn1 ? C_BTN1_P : (btn2 ? C_BTN2_P : C_BTN3_P));
 
     // ------------------------------------------------------------------
     // 底部提示条
@@ -472,10 +444,10 @@ module main_menu (
             menu_rgb = rgb_d;
         end else if (sel_glow) begin
             menu_rgb = C_GLOW;
-        end else if (on_sel3) begin
-            menu_rgb = (ink_d | icon) ? C_TXT_SEL : col_sel3;
-        end else if (on_off3) begin
-            menu_rgb = (ink_d | icon) ? C_TXT_OFF : col_off3;
+        end else if (on_sel) begin
+            menu_rgb = (ink_d | icon) ? C_TXT_SEL : col_sel;
+        end else if (on_off) begin
+            menu_rgb = (ink_d | icon) ? C_TXT_OFF : col_off;
         end else if (in_hint) begin
             menu_rgb = ink_d ? C_HINT_TX : (hint_line ? C_HINT_LN : C_HINT_BG);
         end else begin
@@ -516,8 +488,7 @@ module main_menu_ctrl #(
     input  wire       key2,         // KEY2：短按下移
     input  wire       key3,         // KEY3：短按下移 / 长按确定
     output reg        menu_active,  // 1 = 主菜单
-    output reg  [1:0] sel,
-    output reg        thumb_ui       // 1 = thumbnail screen is active           // 0..2
+    output reg  [1:0] sel           // 0..2
 );
 
     localparam integer DB_CYC = (CLK_FREQ_HZ / 1000) * DEBOUNCE_MS;
@@ -630,22 +601,21 @@ module main_menu_ctrl #(
     always @(posedge clk or posedge rst) begin
         if (rst) begin
             lp_done_d   <= 1'b0;
-            menu_active <= 1'b1;            sel         <= 2'd0;
-            thumb_ui    <= 1'b0;
+            menu_active <= 1'b1;      // 上电先进主菜单
+            sel         <= 2'd0;
         end else begin
             lp_done_d <= lp_done;
             if (menu_active) begin
                 if (k3_confirm) begin
                     if (sel == 2'd0)
-                        menu_active <= 1'b0;
-                    else if (sel == 2'd3) begin thumb_ui <= 1'b1; menu_active <= 1'b0; end      // 「开始」-> 进入图片界面
+                        menu_active <= 1'b0;      // 「开始」-> 进入图片界面
                     // 其余两项暂无功能：保持主菜单不动
                 end else if (step_down) begin
-                    sel <= (sel == 2'd3) ? 2'd0 : (sel + 2'd1);
+                    sel <= (sel == 2'd2) ? 2'd0 : (sel + 2'd1);
                 end
             end else begin
-                if (thumb_ui && k3_confirm) thumb_ui <= 1'b0;
-                else if (k3_press) menu_active <= 1'b1;          // 图片界面 KEY3 短按 -> 回主菜单
+                if (k3_press)
+                    menu_active <= 1'b1;          // 图片界面 KEY3 短按 -> 回主菜单
             end
         end
     end
