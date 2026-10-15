@@ -55,3 +55,14 @@ example rather than from e8f2ee6.
 * DCCA3BC8 - switching, page view, everything else fully normal; slow sparse noise on
   idle image banks only.
 * 6F07FDC1 - identical behaviour to DCCA3BC8 (the SD revert changed nothing).
+
+## 2026-10-15: this is the baseline prepared for the RTC work
+The PCF8563 RTC groundwork was rolled back on request (the i2c_master.v source is kept
+outside the project in _incoming/_work/rtc/ for when work resumes). This snapshot is the
+state to build the RTC integration on:
+* image path = official single-buffer style top + reader (as restored earlier),
+* page view = 480x360 crop on the left + right-hand title column, EC11 long-press entry,
+* info bands hidden inside the page view,
+* everything else unchanged (menu, brightness/contrast, subtitles, waveform, audio).
+Board status note: the development board currently shows no LEDs at all (power input
+side failure, not caused by the project); all verified bitstreams are archived.
