@@ -1,0 +1,2685 @@
+HDMI1_1 修改记录
+=================
+
+日期：2026-10-05
+课程：参考文件/第三讲：按键切换与自动轮播
+
+实际修改文件：
+- src/user_source/hdl_source/SD/sd_card_bmp.v
+
+未修改模块：
+- SD/SPI、SDRAM、HDMI、视频时序、视频延迟和底层 FIFO 接口
+
+备份：
+- 文件：src/user_source/hdl_source/SD/sd_card_bmp.v.bak_20261005_lesson2
+- 备份 MD5：CFD066085AA2D36CF2A941AEED7A5348
+
+本次功能：
+- KEY1 消抖短按切换下一张图片。
+- KEY2 消抖短按切换自动轮播开关。
+- KEY2 消抖长按达到约 1 秒请求上一张图片；长按释放不再误触发短按。
+- 自动轮播周期参数化，LONG_PRESS_MS 默认 1000，AUTO_PLAY_MS 默认 3000。
+- 数码管输出当前图片编号 1~4；未完成 SD 初始化时输出 0。
+- 上一张/下一张/自动轮播均沿用现有双缓冲和 write_finish_toggle 原子提交机制。
+
+验证：
+- TD 综合：成功完成 read_design、elaborate、opt_rtl、opt_gate；日志含 PRJ-1401 和 RUN-1003。
+- TD 物理实现：成功完成 place、route、bitgen；生成 HDMI1.4b_Transmitter_v1.0.bit，日志含 RUN-1003。
+- 综合时序：WNS -5291 ps，TNS -267931 ps；物理实现时序：WNS -6699 ps，TNS -299180 ps。
+- 以上时序告警属于原工程现状，本次未修改底层时序、SDRAM 或 HDMI 模块。
+- 当前代码 MD5：1C15B03839B39064E5AFD1D4ECF46873
+
+板卡验证：
+- 本轮未操作真实板卡。上板后需验证 KEY1 下一张、KEY2 短按自动轮播、KEY2 长按上一张、短按不触发上一张、长按保持 3 秒仅触发一次、忙时请求挂起、约 3 秒轮播、数码管 1~4、首图加载和仅一张图片等场景。
+
+----------------------------------------------------------------
+
+日期：2026-10-06（第七讲 FAT32 文件系统升级重新移植，严格参考版）
+用户要求：在第六讲已恢复正常的源码基线上重新开始第七讲移植；参考内容已经同款板卡验证，除接口适配所必需部分外不增加自定义兼容逻辑。
+
+参考依据：
+- `C:\Users\30685\Desktop\HDMI\参考文件\第七讲：FAT32文件系统升级\第6课_FAT32文件系统升级.md`。
+- 采用章节：3.1 整体架构替换、3.2 接口适配、3.3 文件名约定、3.4 最小改动方案、4.1 `fat32_volume_scanner`、4.2 `fat32_file_streamer`、4.3 两模块协作、5.3 `sd_sector_adapter.v`、5.4 `sd_card_bmp.v`、5.5 顶层文件保持不变、7 验证方法与测试用例。
+- `fat32_volume_scanner.v` 使用参考工程原文件，MD5 `8FB636FE0D7CA160B4D3ED85C6919D3E`；删除此前失败版增加的 MBR 类型 `0x04` 兼容和根目录多扇区扩展。
+- `fat32_file_streamer.v` 保持参考工程原文件，MD5 `93957F4CD4D26DC8278BAA42A3CD329C`。
+- `sd_sector_adapter.v` 按讲义 5.3 直接实现：请求锁存 LBA、透传有效字节、计数字节索引、完成信号直接映射 `sd_sec_read_end`、错误码固定为 0；未预先沿用上次失败版的延迟完成补丁。
+
+实际修改范围：
+- `src\user_source\hdl_source\SD\sd_card_bmp.v`：删除 `bmp_read` 实例，加入 FAT32 扫描器、文件流读取器、扇区适配器和扫描/加载阶段仲裁；扫描器输出的簇号/文件大小锁存为四个图片资源；文件流在写 FIFO 应答后启动；解析 BMP 数据偏移并按 BGR 三字节拼接 24 位 RGB；文件完成事件继续参与原有双缓冲帧提交。
+- `src\user_source\hdl_source\SD\fat32_volume_scanner.v`：替换为参考工程原版。
+- `src\user_source\hdl_source\SD\fat32_file_streamer.v`：确认与参考工程一致并加入工程。
+- `src\user_source\hdl_source\SD\sd_sector_adapter.v`：替换为讲义 5.3 版本并加入工程。
+- `src\td_project\HDMI1.4b_Transmitter_v1.0.al`、`syn_1\HDMI1.4b_Transmitter_v1.0.prj`、`phy_1\HDMI1.4b_Transmitter_v1.0.prj`：移除 `bmp_read.v` 工程引用，加入上述三个 FAT32/适配模块。
+- `top_tf_hdmi_audio.v` 外部接口未修改；未修改 SDRAM、FIFO、HDMI 加密核、PHY、PLL IP 或 SD SPI 底层 `sd_card_top`/`sd_card_sec_read_write`。
+
+备份：
+- `SD\sd_card_bmp.v.bak_20261006_lesson7_strict_retry`
+- `SD\fat32_volume_scanner.v.bak_20261006_lesson7_strict_retry`
+- `SD\fat32_file_streamer.v.bak_20261006_lesson7_strict_retry`
+- `SD\sd_sector_adapter.v.bak_20261006_lesson7_strict_retry`
+- 三份工程文件均有 `.bak_20261006_lesson7_strict_retry` 副本。
+
+工具验证：
+- TD 综合/展开成功：38 个源文件完成分析，`elaborate`、`opt_rtl`、`opt_gate` 均完成，无本次 FAT32 模块的 HDL 语法或端口错误。
+- 综合门级报告：Setup WNS `-5291 ps`、Setup TNS `-288883 ps`、Hold WNS `+421 ps`。
+- TD 物理实现成功完成 `place`、`route`、`fix_hold`、`bitgen`；最终报告 Setup WNS `-6699 ps`、Setup TNS `-319954 ps`、Hold WNS `-1350 ps`（仍有 1 条保持违例），因此本版本未达到时序完全收敛。
+- bitstream：`src\td_project\HDMI1.4b_Transmitter_v1.0_Runs\phy_1\HDMI1.4b_Transmitter_v1.0.bit`。
+- bitstream 大小：629624 bytes。
+- bitstream MD5：`19970618016EED24EBBD4E2D31BF6669`。
+- 工程仍有 CompileOrder 重复警告和既有未驱动/时序警告；未阻止综合、布局布线和 bitgen。
+
+板卡验证状态：
+- 本 bitstream 尚未由用户下载到板卡验证，不能宣称 FAT32 扫描、碎片化文件读取、手动切换或自动轮播已经通过硬件测试。
+- 测试素材仍要求 TF/FAT32 根目录放置大写 8.3 文件名 `PIC1.BMP`、`PIC2.BMP`、`PIC3.BMP`、`PIC4.BMP`；异常素材按第七讲第 7 节测试方法单独测试。
+- 如板卡出现异常，优先回退到用户已确认显示正常的第七讲移植前基线 bitstream，MD5 `626A62CE1DF12FAC61B75DA4E191A6ED`；本次重新移植未覆盖该回退文件。
+
+----------------------------------------------------------------
+日期：2026-10-05
+课程：参考文件/第四讲：HDMI音频输出基础
+
+实际修改文件：
+- src/user_source/hdl_source/hdmi_audio_tone_i2s_64fs.v
+
+修改位置与依据：
+- 依据参考文件/第二讲：官方例程架构与FPGA快速完赛设计思维/第1课_官方例程中的同名官方基线模块。
+- 依据参考文件/第四讲：HDMI音频输出基础/第3课_HDMI音频输出基础.md 的 DDS、16 点正弦 LUT 和音频链路说明。
+- 保留原有模块端口、音频 PLL、I2S 发送时序、八音阶和 NOTE_HOLD_FRAMES，不修改顶层、I2S_receiver、ACR、HDMI 加密核或其他冻结模块。
+
+备份：
+- 文件：src/user_source/hdl_source/hdmi_audio_tone_i2s_64fs.v.bak_20261005_lesson3
+- 备份 MD5：3D46AE99F35F6B4AEC88E9E959F63478
+
+本次功能：
+- 将原有基于相位最高位的方波样本替换为 16 点 Q15 正弦 LUT。
+- 正弦样本按 AMP 参数缩放为 24 位有符号 PCM，保持现有幅度参数和顶层实例化兼容。
+- 保留 32 位 DDS 相位累加器和 C4~C5 八音阶循环，每个音符默认保持 24000 帧。
+- 现有 I2S、I2S_receiver、ACR 和 HDMI 发射器链路不变。
+
+验证：
+- TD 综合：成功完成 read_design、elaborate、opt_rtl、opt_gate；日志含 PRJ-1401 和 RUN-1003，无本次模块语法/端口错误。
+- TD 物理实现：成功完成 place、route、bitgen；生成 HDMI1.4b_Transmitter_v1.0.bit，日志含 RUN-1003。
+- 综合时序：WNS -5291 ps，TNS -268815 ps；物理实现时序：WNS -6699 ps，TNS -296371 ps。
+- 正弦 LUT 的 AMP 参数化乘法综合占用 1 个 DSP；TD 的 HDL-5001 匿名综合对象提示未形成错误，物理实现成功完成。
+- 时序负裕量和原工程底层告警仍然存在，本次没有修改时序约束、PLL、SDRAM 或 HDMI 底层模块。
+- 当前代码 MD5：8998A68D5A19C6134C3190CDD6461B27
+
+音频测试限制：
+- 当前显示屏暂时无法输出音频，本次无法进行实际听音、显示器音频识别或 HDMI 音频端到端板卡验证。
+- 本次结论仅覆盖参考代码位置对照、RTL 综合、物理实现和 bitgen；待接入具备 HDMI 音频输出能力的显示器或音频分析设备后，再验证 48 kHz 音频、左右声道、正弦波音色、音量和音视频同步。
+
+前序课程反馈：
+- 第三讲按键切换与自动轮播已由用户完成全面板卡测试并确认通过。
+
+----------------------------------------------------------------
+日期：2026-10-06
+课程：参考文件/第五讲：系统稳定性
+
+实际修改文件：
+- src/user_source/hdl_source/SD/bmp_read.v
+- src/user_source/hdl_source/SD/sd_card_bmp.v
+
+参考位置与依据：
+- 参考文件/第五讲：系统稳定性/第4课_系统稳定性增强.md 的“五项必做稳定性增强”。
+- 参考文件/第二讲：官方例程架构与FPGA快速完赛设计思维/第1课_官方例程/SD/bmp_read.v 的现有接口和状态机。
+- 参考讲义中的 bmp24_decoder、media_recovery_fsm、Flash、UART、OSD 和快速启动模块属于独立完赛架构；它们会改变当前文件系统、存储或 HDMI 接口，本次没有直接接入。
+
+备份：
+- 文件：src/user_source/hdl_source/SD/bmp_read.v.bak_20261005_lesson4
+- 备份 MD5：F6B90DAEC81F4C01B72BC8529E4DDC0B
+- 文件：src/user_source/hdl_source/SD/sd_card_bmp.v.bak_20261005_lesson4
+- 备份 MD5：1C15B03839B39064E5AFD1D4ECF46873
+
+本次功能：
+- BMP 严格头校验：增加 DIB 头大小、planes、像素偏移范围、文件长度和固定 640x480 像素总量检查；继续要求 BM、24-bit、非压缩和 640x480。
+- 错误码和加载失败脉冲：bmp_read.v 增加 ERR_HEADER、ERR_TIMEOUT、ERR_TRUNCATED 及 load_error 接口，错误码保持到下一次扫描/加载。
+- 坏图快速跳过：扫描发现 BM 签名但头部不匹配时，按文件长度对应的扇区数跳过；普通非 BMP 扇区仍逐扇区前进。
+- 读取超时：默认 500 ms，按单次扇区读取、写请求应答分别计时；超时后退出当前状态，不再永久等待。
+- 像素完整性校验：加载结束时要求实际输出像素数等于 307200，不足则报截断错误。
+- sd_card_bmp.v 对加载错误先重试 1 次；再次失败后屏蔽失败图片并尝试下一张可用图片，当前显示缓冲区不提交半帧数据。
+- 失败图片掩码、恢复方向和参数化超时/重试均保留在现有轮播状态机内，没有改变双缓冲和 write_finish_toggle 提交机制。
+
+未修改模块：
+- SD/SPI 协议底层、sd_card_top.v、spi_master.v、sd_card_sec_read_write.v
+- SDRAM、frame_read_write、异步 FIFO、视频时序、视频延迟
+- HDMI 音频、ACR、加密 HDMI 发射器、PHY、PLL 和顶层接口
+
+验证：
+- TD 综合：成功分析 34 个源文件并完成 read_design、elaborate、opt_rtl、opt_gate；日志含 PRJ-1401 和 RUN-1003，无本次模块语法或端口错误。
+- 综合 QoR：Setup WNS -5770 ps，Setup TNS -736236 ps，Hold WNS +471 ps；资源为 3944 registers、3016 LUTs、20 RAMs、1 DSP。
+- TD 物理实现：成功完成 place、route、bitgen；最终 Setup WNS -6699 ps，Setup TNS -545121 ps，Hold WNS +3 ps；资源为 3094 slices、20 RAMs、1 DSP。
+- bitstream：src/td_project/HDMI1.4b_Transmitter_v1.0_Runs/phy_1/HDMI1.4b_Transmitter_v1.0.bit
+- bitstream MD5：C0A6EFB255E1FBB5243F6A86A9698D9F
+- 当前 bmp_read.v MD5：020FADE7B73F6A3E6B42FFD3B341B9E8
+- 当前 sd_card_bmp.v MD5：60AB17721F0FF47FD69AAD00182D8C1D
+- 原工程已有的负时序裕量、加密模块/SDRAM 相关告警仍存在，本次未修改对应底层约束或模块。
+
+测试限制：
+- 本次尚未进行真实板卡异常介质测试，未实际验证坏 BMP、截断 BMP、TF 卡接触中断、SD 读取超时、失败图片跳过和 30 分钟连续轮播等场景。
+- 当前结论覆盖参考代码对照、RTL 综合、物理实现和 bitgen；后续需要在板卡上逐项验证正常图片播放、错误恢复、上一帧保持、自动轮播和长时间运行稳定性。
+
+----------------------------------------------------------------
+日期：2026-10-06
+课程：参考文件/第七讲：FAT32文件系统升级
+
+实际修改文件：
+- src/user_source/hdl_source/SD/fat32_volume_scanner.v
+- src/user_source/hdl_source/SD/fat32_file_streamer.v
+- src/user_source/hdl_source/SD/sd_sector_adapter.v
+- src/user_source/hdl_source/SD/fat32_bmp_reader.v
+- src/user_source/hdl_source/SD/sd_card_bmp.v
+- src/td_project/HDMI1.4b_Transmitter_v1.0.al（及本次综合/物理实现运行目录中的工程副本）
+
+修改依据与范围：
+- 依据参考文件/第七讲：FAT32文件系统升级/第6课_FAT32文件系统升级.md 及同目录参考 RTL。
+- 仅在 SD 应用层增加 FAT32 适配，保留 sd_card_bmp.v 的按键、自动轮播、失败恢复、双缓冲和 write_finish_toggle 提交逻辑。
+- 未修改 top_tf_hdmi_audio.v、PLL 配置、SDRAM、FIFO、视频时序、HDMI 加密核、PHY 或 SD SPI 底层接口。
+
+本次功能：
+- 解析 MBR/分区引导扇区/BPB，计算 FAT、数据区和根目录位置。
+- 适配现有 sd_card_top 的 sd_sec_* 裸扇区接口，生成 FAT32 模块所需的扇区忙、字节索引和完成信号。
+- 扫描根目录首个簇内的 8.3 大写文件名 PIC1.BMP、PIC2.BMP、PIC3.BMP、PIC4.BMP，并保存首簇和文件长度。
+- 按 FAT 链读取文件，支持文件簇不连续以及数据位于前 64 MB 之外的情况；桥接层继续输出原 bmp_read 契约的 24 位像素流。
+- 加载前校验 BM、DIB 大小、640x480、1 plane、24-bit、BI_RGB、像素偏移和文件长度；保留旧错误码/超时/像素计数检查。
+
+TF 卡测试前提：
+- 必须将目标图片放在 FAT32 根目录，并重命名为大写 PIC1.BMP、PIC2.BMP、PIC3.BMP、PIC4.BMP；缺少的编号会被跳过。
+- 旧版中文文件名或仅按文件物理顺序排列的图片不会被本扫描器识别。
+- 当前实现只扫描根目录首个簇（但会扫描该簇内的多个扇区）；当根目录目录项超过首个簇时，超出部分暂不处理。
+- 当前实现只处理 FAT32 512 字节扇区和常见 FAT32 BPB，未覆盖 exFAT、长文件名匹配和多分区选择等扩展情况。
+
+兼容性修订（2026-10-06）：
+- 实测读卡器中的 TF 卡为 FAT32 BPB，但 MBR 分区类型码为 `0x04`；Windows 可正常挂载，原第七讲扫描器会在 MBR 阶段拒绝该卡。
+- 参考讲义将 `0x0B/0x0C` 描述为 FAT32 分区类型的通常取值，因此本修订保留这两个标准值，并额外兼容 `0x04`。
+- 兼容 `0x04` 后仍必须通过后续 FAT32 BPB 校验，不会把任意 FAT16 分区直接当作 FAT32 使用。
+- 该修订只影响 `fat32_volume_scanner.v` 的 MBR 类型判断，未改变文件名匹配、FAT 链读取或底层 SD 接口。
+
+工具验证：
+- TD 综合：成功分析新增 FAT32 文件并完成 read_design、elaborate、opt_rtl、opt_gate。
+- TD 物理实现：成功完成 place、route、bitgen，生成 HDMI1.4b_Transmitter_v1.0.bit。
+- 综合时序：Setup WNS -5291 ps，Setup TNS -309864 ps，Hold WNS +471 ps。
+- 物理实现时序：Setup WNS -6699 ps，Setup TNS -348083 ps，Hold WNS +11 ps。
+- bitstream：src/td_project/HDMI1.4b_Transmitter_v1.0_Runs/phy_1/HDMI1.4b_Transmitter_v1.0.bit
+- bitstream MD5：D6FB38C79702E1CD03E58D584D79CD13
+- 负时序裕量和 PHY/SDRAM 相关告警仍属于当前工程现状，本次未改动相应底层模块或 PLL。
+
+板卡验证状态：
+- 本次移植截至记录时尚未进行真实板卡验证，不能宣称 FAT32 正常文件、碎片文件、64 MB 之外文件、缺图、非 BMP、损坏文件和长时间轮播均已通过。
+- 上板时应优先验证 FAT32 卡启动、四个 PIC 文件顺序切换、自动轮播、缺失文件跳过，以及文件碎片化后仍能完整显示；再验证坏文件不会提交半帧。
+- 第五讲已复现的 9 号裸扇区截断拼接问题，理论上由 FAT32 文件长度/簇链读取避免，但必须用实际板卡结果确认。
+
+兼容版工具验证：
+- 修改 `fat32_volume_scanner.v` 后重新完成 TD 综合、place、route 和 bitgen。
+- 兼容版物理实现时序：Setup WNS -6699 ps，Setup TNS -392067 ps，Hold WNS +3 ps。
+- 兼容版 bitstream：src/td_project/HDMI1.4b_Transmitter_v1.0_Runs/phy_1/HDMI1.4b_Transmitter_v1.0.bit
+- 兼容版 bitstream MD5：DF18C5529C572009707F841A8C4AF056
+- 兼容版尚未完成真实板卡显示验证。
+
+黑屏排查与后续修订（2026-10-06）：
+- 通过 Windows `fsutil file queryextents` 交叉确认 F 盘中的 PIC1~PIC4 均为 226 个连续簇；此前 PowerShell FAT 链短链结果来自字节位移表达式写法错误，不是 TF 卡 FAT 损坏。
+- 按参考讲义要求，将 `sd_card_bmp.v` 的上电扫描启动条件从 `sd_init_done && bmp_ready` 改为仅由 `sd_init_done` 触发，避免把 FAT32 文件流模块的 ready 语义当作扫描许可。
+- 将 `sd_sector_adapter.v` 的扇区完成通知延后一拍，并保留结束拍同时到达的最后一个有效字节，避免上层在 SD 读结束时过早校验扇区缓存。
+- 当前修改尚未重新生成 bitstream，也尚未进行板卡复测；此前 MD5 为 DF18C5529C572009707F841A8C4AF056 的 bitstream 不包含上述两项修订。
+- 使用本机 `D:\App\TD\bin\td_commands_prompt.exe` 重新完成物理实现和 bitgen；最终 Setup WNS -6699 ps、Setup TNS -392067 ps、Hold WNS +3 ps。
+- 新 bitstream 仍输出到 `src/td_project/HDMI1.4b_Transmitter_v1.0_Runs/phy_1/HDMI1.4b_Transmitter_v1.0.bit`；本次生成后的 MD5 为 `FEBAF13536B150A5A440F81CCC688506`，尚未进行板卡复测。
+
+板卡异常图片实测（2026-10-06）：
+- 使用目录：doc/TF卡图片/第五讲_稳定性异常测试，测试样本为 00~09。
+- 0 号正常基准图：正常显示，PASS。
+- 1~8 号异常图：均被正常跳过，未观察到异常图提交到显示缓冲区，PASS。
+- 9 号物理截断图：观察到画面被切分/拼接为两部分，未被当前工程可靠拦截，FAIL（已复现）。
+
+9 号结果分析：
+- 该样本实际文件长度为 100000 字节，但 BMP 头中的 file_size 仍为完整值 921654 字节。
+- 当前 bmp_read.v 通过裸 SD 扇区读取工作，没有 FAT 文件系统提供的真实文件末尾信息；模块会按照头部声明的 file_size 继续读取后续扇区。
+- 截断位置之后的扇区可能包含旧数据、其他文件或残留数据，因此会出现半帧/拼接画面。pixel_count 可能仍达到 307200，不能可靠触发 ERR_TRUNCATED。
+- 这不是 1~8 号头部严格校验失效，而是当前裸扇区扫描架构无法判断物理文件 EOF 的边界限制。若要可靠检测此类截断，需要接入 FAT32 文件长度/簇链信息，超出本阶段允许修改的模块范围。
+- 因此第五讲当前板卡结论为：头部异常跳过功能已通过；物理截断检测在当前架构下未通过，需在测试报告中单独标记，不应将 9 号现象归因于 HDMI、SDRAM 或视频时序模块。
+
+第七讲回退记录（2026-10-06）：
+- 最新 FAT32 版本重新综合、物理实现并生成 bitstream 后，板卡仍保持黑屏、数码管显示 1；该 bitstream MD5 为 `FB2A815D4F1AC8C9F83CF3D0D67369BA`，因此已排除误下载旧网表这一原因。
+- 由于当前硬件观测无法区分 FAT32 扫描、扇区完成握手、FAT 链读取和像素提交等多个应用层故障点，按要求完整回退到第七讲移植前的第五讲/第四讲基线。
+- 恢复文件：`src/user_source/hdl_source/SD/sd_card_bmp.v` 使用 `sd_card_bmp.v.bak_20261005_lesson4`，`src/user_source/hdl_source/SD/bmp_read.v` 使用 `bmp_read.v.bak_20261005_lesson4`。
+- 综合和物理实现 PRJ 已移除 `fat32_volume_scanner.v`、`fat32_file_streamer.v`、`sd_sector_adapter.v`、`fat32_bmp_reader.v`；旧 `bmp_read.v` 恢复为参与综合和物理实现。新增 FAT32 源文件保留在目录中但不再被工程引用。
+- 为便于后续重新定位问题，原第七讲版本已归档为 `sd_card_bmp.v.bak_20261006_lesson7_failed`、`bmp_read.v.bak_20261006_lesson7_failed`，两份运行 PRJ 也各有同名归档副本。
+- 回退后的 bitstream 尚未重新综合、物理实现和板卡验证；此前第七讲 bitstream 不再作为当前测试依据。
+- 回退基线已重新完成 TD 综合、place、route、hold fix 和 bitgen。综合 Setup WNS -5291 ps、Hold WNS +471 ps；物理实现最终 Setup WNS -6699 ps、Hold WNS +11 ps，工具已报告全部 hold violations fixed。
+- 当前回退 bitstream：`src/td_project/HDMI1.4b_Transmitter_v1.0_Runs/phy_1/HDMI1.4b_Transmitter_v1.0.bit`；MD5：`626A62CE1DF12FAC61B75DA4E191A6ED`。生成时尚未完成板卡验证。
+- 回退版板卡复测结果：用户下载上述 MD5 对应 bitstream 后，图片显示恢复正常，确认第七讲回退基线可正常工作。
+
+----------------------------------------------------------------
+日期：2026-10-06（第七讲严格移植兼容性修正）
+板卡反馈：重新下载严格参考版后仍黑屏，数码管持续显示 1；用户同时观察到右侧 5 个绿色 LED、左侧 2 个红色 LED。
+
+定位依据：
+- `sd_card_bmp.v` 的 `state_code` 在 SD 初始化完成后显示 `{img_idx}+1`，持续显示 1 只能说明当前图片索引仍为 0，不能证明扫描或加载成功。
+- 当前工程顶层没有这组 LED 的 RTL 输出，LED 颜色不能直接映射为 FAT32 状态码。
+- 先前介质检查记录表明该读卡器中的 TF 卡 MBR 分区类型为 `0x04`；严格参考版 `fat32_volume_scanner.v` 仅接受 `0x0B/0x0C`，因此会在 LBA0 判定 `ERR_UNSUPPORTED_BPB (0x21)`，不会进入 FAT32 引导扇区和目录扫描。
+
+本次修改：
+- 仅在 `src/user_source/hdl_source/SD/fat32_volume_scanner.v` 的 MBR 分区类型判断处增加 `0x04` 接受分支。
+- 保留参考实现的 BPB 校验、FAT 参数计算、根目录扫描、FAT 链读取和扇区适配逻辑；未扩大根目录扫描范围，也未修改 SD/SDRAM/HDMI/PLL/视频模块。
+- 该处属于针对已知板卡介质格式的最小兼容修正，不改变参考版对 `0x0B/0x0C` 卡的行为。
+
+本次 bitstream 尚未完成板卡复测；若仍黑屏，下一步应读取当前卡的 LBA0/BPB/根目录布局，区分目录位置不在首个根目录扇区与扇区握手问题，避免继续猜测。
+
+介质实测补充（F 盘，2026-10-06）：
+- Windows 将卷识别为 FAT32，容量约 8 GB；对应 MBR 分区类型为 `0x04`，分区起始偏移为 0。
+- 当时 Windows 目录枚举显示的文件名曾被记录为 `00_0.bmp`、`01_1.bmp`、`02_3.bmp`、`03_4.bmp`；后续读取原始扇区后确认这不是当前有效目录项，以下方更正为准。
+
+兼容修正版构建：
+- TD 综合、place、route、fix_hold、bitgen 均完成；无本次 RTL 语法或端口错误。
+- 最终时序：Setup WNS `-6699 ps`、TNS `-322668 ps`；Hold WNS `-1465 ps`，仍有 1 条保持违例，不能称为时序完全收敛。
+- bitstream：`src/td_project/HDMI1.4b_Transmitter_v1.0_Runs/phy_1/HDMI1.4b_Transmitter_v1.0.bit`。
+- 文件大小 629624 bytes；MD5 `9D8782078FA14DEA7F2681A14F30F133`。
+- 上述 bitstream 尚未完成板卡复测；测试前需将 F 盘文件名改为 `PIC1.BMP`、`PIC2.BMP`、`PIC3.BMP`、`PIC4.BMP`。
+
+----------------------------------------------------------------
+日期：2026-10-06（第七讲 FAT32 根目录扫描修正）
+
+问题与定位：
+- 用户下载兼容修正版后仍黑屏，复位时数码管短暂显示 0，随后停在 1。
+- 直接只读 F 盘原始扇区确认该卷是 LBA0 直接引导的 FAT32：每扇区 512 字节、每簇 8 个扇区、保留区 2110 扇区、2 张 FAT、每张 FAT 15329 扇区、根目录起始簇为 2。
+- 因此数据区起始 LBA 为 32768，根目录簇覆盖 LBA 32768 至 32775。`PIC1    BMP` 至 `PIC4    BMP` 四个有效目录项实际位于 LBA 32775；此前扫描器只读根目录簇第一个扇区（LBA 32768），必然报告未找到图片。四个文件的 8.3 文件名和 BMP 内容均存在，不需要改名。
+
+本次修改：
+- 仅修改 `src/user_source/hdl_source/SD/fat32_volume_scanner.v`：记录根目录扇区索引，按 `sectors_per_cluster` 逐个读取完整根目录簇；每个扇区仍复用原有 32 字节目录项解析，找到四个目标文件即结束，扫完整簇仍缺文件才报 `ERR_RESOURCE_MISSING`。
+- 这是针对当前 F 盘布局的必要适配，超出课件第五节所示“读取根目录扇区”的简化实现；FAT32 根目录实际按簇组织，一个簇可包含多个扇区。未改动 SD 底层、SDRAM/FIFO、HDMI/视频模块及顶层接口。
+- 先前关于当前文件名不符合 `PIC1.BMP` 至 `PIC4.BMP` 的记录作废，以本节基于原始扇区的实测为准。
+
+板卡测试结果（用户反馈）：
+- 基于上一轮根目录扫描修正版 bitstream（MD5 `4140B5655D298BBF744670F7C5A9A612`）的测试通过：正常启动显示、手动切换、自动轮播、碎片化文件、大容量卡、MBR 分区、非 BMP 文件、根目录多文件。
+- 不通过：文件缺失测试。其他测试暂不进行。
+- 课件第七讲测试用例 8 的预期为删除 `PIC3.BMP` 后仍可显示 `PIC1/2/4`，切换到缺失图片时保持当前显示或报错。
+- 定位到控制逻辑将 `img_found_count` 仅在 `scan_resource_valid == 4'hf` 时设为 4，否则设为 0；因此只要缺少任意图片，首图加载和后续切换都会被整体禁止，不符合课件预期。
+- 用户补充的失败现象为：缺失 PIC3 时直接保持黑屏，与上述“发现数量被置零”的路径吻合。
+- 已修改 `src/user_source/hdl_source/SD/sd_card_bmp.v`：按 `scan_resource_valid` 计算实际图片数，并将存在资源映射为连续播放索引，使首图、手动切换和自动轮播跳过缺失文件；扫描到四张时资源次序不变。
+
+验证状态：
+- 原始扇区读取验证了目标目录项位置及 8 扇区簇参数；本次 RTL 修改尚待 TD 综合/实现和板卡复测。
+- 复位后短暂显示 0、随后显示 1 只表明初始化门控释放且当前图片索引为 0，单靠该显示码不能区分扫描失败与首图加载/帧提交失败。
+- 追加验证：FAT 表中根目录簇 2 的条目为 `0x0FFFFFFF`（EOC），确认当前根目录恰好只有这一个簇；本次完整扫描其 8 个扇区即可覆盖当前卡根目录。
+- TD 综合（`read_design`、`opt_rtl`、`opt_gate`）成功；未发现本次扫描器修改的 HDL 错误。综合 Setup WNS `-5291 ps`、Hold WNS `+421 ps`。
+- TD 物理实现完成 `place`、`route`、`fix_hold` 和 `bitgen`。最终 Setup WNS `-6699 ps`、TNS `-340960 ps`；Hold WNS `-1590 ps`，仍有 1 条 hold 违例，故本工程时序未完全收敛。
+- 新 bitstream：`src/td_project/HDMI1.4b_Transmitter_v1.0_Runs/phy_1/HDMI1.4b_Transmitter_v1.0.bit`，大小 629624 bytes，MD5 `4140B5655D298BBF744670F7C5A9A612`。
+- 上述 `4140...` bitstream 已完成用户列出的板卡测试；除文件缺失测试外，所列项目均通过。
+- 缺失文件列表修正版的工具流程结果记录在下方，尚未完成板卡复测。
+
+缺失文件处理修正版构建：
+- 修改文件：`src/user_source/hdl_source/SD/sd_card_bmp.v`；目录中实际存在的文件被作为紧凑播放列表，单缺 PIC3 时预计播放 PIC1、PIC2、PIC4 并循环。
+- TD 综合、place、route、fix_hold、bitgen 均完成。
+- 最终时序：Setup WNS `-6699 ps`、TNS `-320782 ps`；Hold WNS `-1235 ps`，仍有 1 条 hold 违例，时序未完全收敛。
+- bitstream：`src/td_project/HDMI1.4b_Transmitter_v1.0_Runs/phy_1/HDMI1.4b_Transmitter_v1.0.bit`，大小 629624 bytes，MD5 `6C18062E3C87BE5511F52DE96449A166`。
+- 该 bitstream 尚未下载板测；需重点复测缺失 PIC3 时能否显示 PIC1/PIC2/PIC4 并正常切换。工具构建通过不等同板卡功能通过。
+
+----------------------------------------------------------------
+日期：2026-10-06
+课程：参考文件/第六讲：Flash固化与上电自启
+
+移植范围：
+- 按第六讲完整移植适用于当前工程的可靠性增强内容；Flash 烧写和长稳测试属于板卡/工具操作，不新增 RTL 模块。
+- 保留第七讲 FAT32 回退状态，不重新加入 FAT32 文件系统模块。
+- 未修改 SDRAM、FIFO、视频时序、HDMI 加密核、PHY、SD SPI 底层、PLL IP 本体和顶层外部接口。
+
+实际修改文件：
+- src/user_source/hdl_source/top_tf_hdmi_audio.v
+- src/user_source/hdl_source/SD/sd_card_bmp.v
+- src/user_source/hdl_source/reset_sync.v（新增）
+- src/user_source/hdl_source/sync_2ff.v（新增）
+- src/user_source/constraints_source/timing.sdc
+- src/td_project/HDMI1.4b_Transmitter_v1.0.al 及 syn_1/phy_1 工程副本
+
+备份：
+- top_tf_hdmi_audio.v.bak_20261006_lesson6
+- SD/sd_card_bmp.v.bak_20261006_lesson6
+- constraints_source/timing.sdc.bak_20261006_lesson6
+- syn_1/HDMI1.4b_Transmitter_v1.0.prj.bak_20261006_lesson6
+- phy_1/HDMI1.4b_Transmitter_v1.0.prj.bak_20261006_lesson6
+
+本次功能：
+- 新增 `reset_sync`：每个主要 PLL 时钟域采用异步断言、同步释放的两级复位同步器，降低上电/复位释放时的亚稳态和半周期启动风险。
+- 将 `sys_pll`、`video_pll` 和音频 PLL 的 reset 接到外部 `rst_n`，不再固定为 0。
+- 当前 PLL 封装只向顶层暴露 `audio_pll_lock`；`sys_pll/video_pll` 的内部 lock 没有顶层端口，且按范围要求未修改 PLL IP，因此用 `rst_n & audio_pll_lock` 作为当前工程可实现的统一外部锁定条件。不能将本版本表述为三个 PLL 的独立 locked 全部参与复位。
+- 新增 `sync_2ff`，把 SDRAM `Sdr_init_done` 从 `ext_mem_clk` 域同步到 `sd_card_clk` 域。
+- `sd_card_bmp` 只有在同步后的 SDRAM 初始化完成且 BMP 扫描器 ready 后才启动上电扫描，避免 SDRAM 尚未可用时提交帧数据。
+- 各视频、SD、SDRAM、音频逻辑按所属时钟域使用同步复位；板级 `clk` 域的 `seg_scan` 保留原始 `rst_n` 接法。
+- `timing.sdc` 增加外部复位 false path、同步器首级寄存器 false path、HDMI 串行时钟到输出端口的最大延迟约束以及用户时钟 hold uncertainty；原有时钟组约束保留。
+
+工具验证：
+- TD 综合：成功完成 read_design、elaborate、opt_rtl、opt_gate 并导出 gate database；无本次新增 RTL 的语法/端口错误。
+- 综合 QoR：Setup WNS -5291 ps，Setup TNS -268997 ps，Hold WNS +421 ps；原工程的 setup 负裕量仍存在。
+- TD 物理实现：使用更新后的 gate database 成功完成 place、route、hold fix 和 bitgen；日志报告全部 hold violations fixed。
+- 物理实现 QoR：Setup WNS -6699 ps，Setup TNS -296083 ps，Hold WNS +13 ps，Setup 违例仍未收敛。
+- bitstream：src/td_project/HDMI1.4b_Transmitter_v1.0_Runs/phy_1/HDMI1.4b_Transmitter_v1.0.bit
+- bitstream 大小：629624 bytes
+- bitstream MD5：7691288271B759BF70907F4A942E3BD0
+- TD 工具仍报告两个非阻塞 CompileOrder 重复警告（新增同步器与既有 afifo IPC 文件），未阻止分析、综合、布局布线或 bitgen。
+
+板卡验证状态：
+- 本版本尚未由用户下载到板卡验证，因此不能宣称第六讲复位时序、SDRAM 启动门控、断电重启或 Flash 自启动已经通过硬件测试。
+- 音频功能继续按前序记录处理：当前显示屏无法输出 HDMI 音频，本阶段不进行实际音频测试，默认音频链路保持原有行为。
+- 第七讲回退版 MD5 `626A62CE1DF12FAC61B75DA4E191A6ED` 已由用户确认显示正常；它是本次第六讲板卡测试的对照基线，不是本次新 bitstream 的验证结果。
+
+----------------------------------------------------------------
+日期：2026-10-06（第六讲问题修复版）
+问题反馈：
+- 用户板卡测试发现：单击自动轮播后卡死，卡死后其他按键失效；切换到最后一张后再按下一张不能回到第一张并卡死；物理复位按钮也不能恢复，只能重新下载 bitstream。
+
+定位与修复：
+- `sd_card_bmp.v` 中 `write_finish_pulse` 是跨 `ext_mem_clk`/`sd_card_clk` 同步后的单周期事件；原逻辑要求它与前一拍已经记录的 `source_done_seen` 同时满足。
+- 当 `bmp_ready` 与 `write_finish_pulse` 同周期到达时，非阻塞赋值读取旧值，完成事件可能被漏掉，导致 `load_busy` 一直为 1，后续按键和自动轮播请求全部被屏蔽。
+- 新增 `write_finish_seen` 事件暂存：允许写完成脉冲先到、同周期到达或源图完成先到，两个条件最终同时满足时再提交帧并释放 `load_busy`。所有复位、扫描启动、首图/手动/自动加载路径均清除该暂存位。
+- 该补丁只修复当前工程既有帧提交握手，不改变第六讲规定的复位同步器、PLL 复位、SDRAM 初始化门控和时序约束结构；参考讲义明确说明自动轮播基础逻辑属于前课内容，本次没有重写自动轮播状态机。
+
+参考依据（严格移植部分）：
+- `参考文件\第六讲：Flash固化与上电自启\第5课_Flash固化与上电自启.md`。
+- `2.1 优化一（必做）`：新增 `reset_sync`，各时钟域异步断言、同步释放。
+- `2.2 优化二（必做）`：PLL 的 reset 使用 `~rst_n`；按可获得的 `audio_pll_lock` 形成当前工程的复位释放条件；SDRAM 初始化完成后才启动扫描/加载。
+- `2.2` 附录和 `2.6.2`：`sync_2ff` 的跨时钟域同步思路，用于 `Sdr_init_done` 从 `ext_mem_clk` 同步到 `sd_card_clk`。
+- `2.3 优化三（选做）`、`2.6.5`：复位 false-path、同步器首级 false-path、HDMI max-delay、hold uncertainty 约束。
+- `2.5 改动位置示意图`、`2.6.3`、`2.6.4`：顶层复位连接、PLL reset、子模块按时钟域复位、`sd_card_bmp` 启动条件的具体位置。
+- `2.4 优化四（必做）`：Flash 固化和长稳测试属于板卡/工具操作，未新增 RTL 模块。
+
+本次修复版构建结果：
+- TD 综合成功；未发现本次新增 RTL 的语法或端口错误。
+- TD 物理实现执行了 `place`、`route`、`fix_hold` 和 `bitgen`。
+- 为沿用工程原有的 hold-fix 流程，`phy_1\settings.cfg` 使用 `arr_filter on`、`drHoldFix on`，并设置宽松的 route WNS 继续阈值 `arr_rwns -100000`；这只影响实现流程，不改变 RTL。
+- Setup WNS `-6699 ps`，Setup TNS `-296845 ps`。
+- Hold-fix 后仍有 1 条保持违例：Hold WNS `-1590 ps`，路径为 `video_clk -> ext_mem_clk` 的既有视频读请求跨域路径；因此本版不能表述为时序完全收敛。
+- bitstream：`src\td_project\HDMI1.4b_Transmitter_v1.0_Runs\phy_1\HDMI1.4b_Transmitter_v1.0.bit`。
+- bitstream 大小：629624 bytes；MD5：`69DD7333267F462599BF7FDFC8DFA803`。
+
+板卡验证状态：
+- 上述修复版尚未由用户重新下载验证；自动轮播、末尾回卷、按键恢复、物理复位和上电启动仍需板卡复测。
+- 第六讲音频实际测试继续跳过，因为当前显示屏无法输出 HDMI 音频；默认音频链路保持原有行为。
+- 若本版板卡仍出现卡死，应优先回退到已确认正常的第七讲回退基线 MD5 `626A62CE1DF12FAC61B75DA4E191A6ED`，再单独定位复位/时钟启动问题。
+
+----------------------------------------------------------------
+
+日期：2026-10-07（第五讲稳定性迁移到生效路径 + 工程文件与约束补全）
+
+用户要求：尽可能按参考文件修改；参考 RTL 已在同款板卡验证过，除读卡所需的特殊兼容外不再增加自定义逻辑。
+
+参考依据（逐条对应）：
+- 第五讲：`参考文件\第五讲：系统稳定性\第4课_系统稳定性增强.md` 的 §2.1 BMP严格校验、§2.2 错误码上报与恢复、§2.3 坏图快速跳过、§2.4 加载超时、§2.5 像素完整性校验、§2.6 参数集中化（参数分组部分）、§2.9 改动量汇总、§2.10 验证方法与测试用例；§2.2 的恢复策略“重试1次 → 失败跳过 → 保留上一帧”。
+- 第六讲：`第5课_Flash固化与上电自启.md` §2.6.5 第5条“SDRAM 移位时钟路径设为 false_path”，以及该条生效所需的移位时钟命名。
+- 第七讲：`第6课_FAT32文件系统升级.md` §5.4（BMP 头解析位于 `sd_card_bmp`）、§5.5（顶层保持不变）。
+
+实际修改文件：
+- `src\user_source\hdl_source\SD\sd_card_bmp.v`
+- `src\user_source\hdl_source\SD\fat32_volume_scanner.v`（8.3 文件名大小写不敏感：补丁③；根目录簇链遍历：补丁④）
+- `src\user_source\constraints_source\timing.sdc`（第六讲第5条约束 + A2 的异步复位网络 false_path）
+- `src\td_project\HDMI1.4b_Transmitter_v1.0.al`
+- `src\user_source\hdl_source\top_tf_hdmi_audio.v`（第六讲 A2：三路 PLL 锁定参与复位）
+- `src\user_source\hdl_source\IP\sys_pll.ipc`、`IP\video_pll.ipc`（A2：勾选 PLL lock，由用户在 TD 向导中生成）
+
+备份（同名副本）：
+- `SD\sd_card_bmp.v.bak_20261007_lesson5_port`（备份 MD5：C22B683E1CD2AAF91C97E414EC9662C9）
+- `SD\fat32_volume_scanner.v.bak_20261007_lesson5_port`（备份 MD5：948E83C9DE89DA954316374E55FDD160）
+- `constraints_source\timing.sdc.bak_20261007_lesson5_port`
+- `td_project\HDMI1.4b_Transmitter_v1.0.al.bak_20261007_lesson5_port`
+- `IP\video_pll.ipc.bak_20261007_before_plllock`
+- 另存上一版 bitstream：`phy_1\HDMI1.4b_Transmitter_v1.0_6C18062E_before_lesson5.bit`（MD5 6C18062E3C87BE5511F52DE96449A166）
+
+第五讲迁移说明：
+- 第五讲原文把 5 项必做加在 `bmp_read.v`；第七讲已按讲义要求删除 `bmp_read` 实例，因此本次把这 5 项逐条落在当前生效的 FAT32 字节流路径上，校验条件与错误码与讲义一致，不额外引入自定义判据。
+
+本次功能（`sd_card_bmp.v`）：
+- §2.1 严格校验：新增 `hdr_byte0/1`、`hdr_file_size`、`hdr_dib_size`、`hdr_width`、`hdr_height`、`hdr_planes`、`hdr_bpp`、`hdr_compression` 解析；`header_ok` = 官方原有 4 项（'B''M' / 宽=bmp_width / 高=bmp_height / 24bit / 不压缩）+ 讲义新增 5 项（`dib_size>=40`、`planes==1`、`pixel_offset>=54`、`pixel_offset<file_len`、`file_len>=pixel_offset+921600`）。长度校验同时使用两个来源：BMP 头内 `file_size` 字段（讲义 2.1 的 `file_len`）与 FAT32 目录项真实长度，两者都必须不小于 `pixel_offset+921600`。
+- §2.2 错误码：`ERR_NONE/ERR_HEADER/ERR_TIMEOUT/ERR_TRUNCATED`；工程另加 `ERR_NO_IMAGE` 表示根目录找不到 PIC1~4.BMP。新增 `bmp_error[2:0]` 与 `load_error` 单周期脉冲；错误码保持到下一次扫描或下一次成功提交。错误码归类：结构类校验失败（签名/DIB/宽高/planes/位深/压缩/偏移）→ `ERR_HEADER`；结构合法但长度不足、或源文件读完像素不足 → `ERR_TRUNCATED`；无进展超时 → `ERR_TIMEOUT`。
+- §2.2 恢复：新增 `retry_count`、`retry_pending`、`skip_pending`、`img_bad`；阶梯为“重试 1 次（`MAX_RETRIES=1`）→ 屏蔽该槽位 → 切下一张可用图”，全程不提交半帧、保留上一帧画面。
+- §2.3 坏图快速跳过：FAT32 架构下不存在“按扇区跳文件”的必要，改为“校验失败即屏蔽该文件名槽位”，由 `play_valid` 播放列表天然跳过，效果与讲义一致。
+- §2.4 加载超时：`SD_READ_TIMEOUT_MS=500`；看门狗按“无进展”计时（任一扇区 valid/done、源字节 valid、整帧写完脉冲即清零），超时判 `ERR_TIMEOUT`；扫描阶段卡住同样上报错误码（SD 底层控制器不在本文件可恢复范围内）。
+- §2.5 像素完整性：新增 `pixel_count`；`bmp_data_wr_en` 在像素数达到 307200 后停止写入；提交条件增加 `pixel_ok` 门控；源文件读完仍不足 307200 判 `ERR_TRUNCATED`。该改动同时修复了“截断 BMP 导致 write_finish 永不产生、load_busy 永久为 1、按键与轮播全部失效”的死锁。
+- §2.6 参数集中化（部分）：新增稳定性参数区（`SD_READ_TIMEOUT_MS`、`MAX_RETRIES`、`BMP_WIDTH_P`、`BMP_HEIGHT_P`）。按讲义要求不改顶层接口，仍用 `bmp_width/bmp_height` 端口做 640x480 校验。
+- 安全门控：六条加载启动分支统一增加 `!streamer_busy`，避免上一次文件流的残留字节被当作新图数据。
+- 槽位导航：用槽位（PIC1~PIC4）直接寻址替代原“紧凑播放序号”查表，缺失或坏图槽位天然跳过；数码管显示 PIC 编号。
+- 数码管错误显示约定（工程自定义，讲义只要求“上层可提示”）：正常显示 PIC 编号 1~4；存在未清除错误时显示 `8|错误码` → 9=ERR_HEADER、A=ERR_TIMEOUT、B=ERR_TRUNCATED、C=ERR_NO_IMAGE、D=ERR_FS（卷/BPB 不认识）、E=ERR_SD_SECTOR（SD 扇区读失败）。
+
+本次功能（`fat32_volume_scanner.v`，读卡兼容补丁③）：
+- 现象：用户在 Windows 上把图片命名为 `PIC1.bmp`（小写扩展名）后，板卡数码管稳定显示 `C`，图片不显示。
+- 实测定位：`dir /x F:\` 显示 `PIC1.bmp` 且**没有独立的 8.3 短名列**，说明磁盘上该目录项的 8.3 名本身就是 `PIC1    bmp`（小写扩展名）。原因是 Windows 对“本来就合法 8.3”的文件名按用户输入原样写盘，且不生成 8.3 与长文件名不一致的情况（不会额外生成长文件名条目）。讲义版扫描器要求扩展名恰为大写 `BMP`，因此匹配失败并报 `ERR_RESOURCE_MISSING`。
+- 修改：新增 `upcase()` 函数，目录项 8.3 名（基本名与扩展名共 11 字节）比较改为大小写不敏感；`dir_resource_index` 也改用大写后的字符计算。**除大小写放宽外，文件名约定（PIC1~PIC4、8.3、根目录）未变。**
+- 该补丁与已有的两处读卡兼容（MBR 分区类型 `0x04` 兼容、根目录整簇多扇区扫描）属同一类“针对实际介质/工具行为的兼容”，不改变讲义对 `0x0B/0x0C` 卡与全大写文件名卡的行为。
+- 现场处置：已把 F 盘上 4 个文件改为全大写 `PIC1.BMP`~`PIC4.BMP`（Windows 下仅改大小写会被忽略，需两步改名）。改名后即使不重新综合，现有已烧录的 bitstream 也应能正常出图；本次补丁用于避免今后再踩同一坑。
+- 增强可观测性：扫描无结果时按扫描器 `fs_error` 区分读数——`0x22` → `C`（卷解析成功、根目录没有合规图片）、`0x10` → `E`（扇区读失败）、其它（`0x20/0x21`）→ `D`（引导扇区/BPB 不认识）。此前这三种情况都显示 `C`，无法区分。
+
+本次功能（`fat32_volume_scanner.v`，读卡兼容补丁④：根目录簇链遍历）：
+- 现场现象：4 个文件已确认为全大写 8.3 名（`GetShortPathName` 实测），板卡数码管仍稳定显示 `C`。
+- 原始扇区实测（直接读 `\\.\F:`）：BPB 为 512 B/扇区、8 扇区/簇、保留 2110、2 个 FAT、FAT 大小 15329、根簇 2；FAT 起始 LBA 2110、数据区起始 LBA 32768。
+  **根目录簇链为 2 → 17 → 100（EOC），即根目录已占 3 个簇**；有效的 `PIC1~PIC4.BMP` 目录项位于**簇 100、LBA 33559、槽 5~8**。根目录之所以涨到 3 簇，是历史遗留的数百条已删除目录项（VHD/MP4/TXT/MD 等）长期占用所致。
+- 根因：讲义版扫描器只读根目录的第一个簇（LBA 32768~32775）；此前的"整簇多扇区扫描"补丁也只把范围扩到第一个簇的 8 个扇区，**不跟随簇链**，因此永远看不到位于第 3 簇的目录项，最终报 `ERR_RESOURCE_MISSING` → 数码管 `C`。讲义 §4.1 自己已承认该简化（"只读根目录的第一个簇……超过一个簇就扫不到了"）。
+- 修改：在扫描器中新增 3 个状态 `ST_ROOT_FAT_REQ / ST_ROOT_FAT_WAIT / ST_ROOT_FAT_PARSE`，在扫完当前簇的全部扇区后，读该簇的 FAT 表项（4 字节，与 `fat32_file_streamer` 相同的定位方式），据此跳到下一个根目录簇继续扫描；直到找齐四张图（正常结束）、簇链 EOC（报 `ERR_RESOURCE_MISSING` → `C`）、FAT 链越界（报 `ERR_SECTOR` → `E`）、或超过 16 个簇（报 `ERR_RESOURCE_MISSING`，避免长时间扫描）。
+- 未改动：BPB/分区识别、文件名匹配规则、`fat32_file_streamer.v`、扇区接口时序。
+- 验证：TD 综合（`read_design`/`elaborate`/`opt_rtl`/`opt_gate`）无 ERROR；Setup WNS 仍为 `-2127 ps`、Hold WNS `+421 ps`。
+- 现场替代方案（无需重新综合）：把该卡重新格式化为 FAT32（快速格式化）后只拷入 4 张 `PIC1~PIC4.BMP`，根目录回到单簇且目录项从槽 0 开始，现有已烧录 bitstream 即可正常显示；补丁④ 是为了让"根目录被历史条目撑大的卡"也能直接用。
+
+本次功能（第六讲 A2：三路 PLL 锁定全部参与复位）：
+- 背景：此前 `sys_pll`/`video_pll` 的 IP 未勾选锁定输出，生成文件里 `.extlock(open)`、模块没有 lock 端口，因此顶层只能用 `rst_n & audio_pll_lock`（讲义允许的降级条款）。
+- IP 侧（用户在 TD 的 IP 向导中完成）：`sys_pll.ipc`、`video_pll.ipc` 的 `<Page1>` 增加 `<pll_lock>ENABLE</pll_lock>`（与 `PLL_HDMI_AUDIO.ipc` 一致的写法），重新生成后 `sys_pll.v` 出现 `output extlock;` + `.extlock(extlock)`，`video_pll.v` 同理。**只勾 lock，未改动输入频率、反馈模式、环路带宽与各输出时钟的频率/相位。**
+- 顶层（本次修改 `top_tf_hdmi_audio.v`）：
+  - 新增 `wire sys_pll_lock / video_pll_lock`，两个 PLL 实例增加 `.extlock(...)` 连接。
+  - 三路 lock 按第六讲 §4.4/§2.9-3 先各自过 `sync_2ff`（`u_sys_lock_sync`/`u_video_lock_sync`/`u_audio_lock_sync`，`RESET_VAL=0` 即未锁定）同步到 `clk` 域。
+  - 采用**写法 B（当前生效）**：三路同步后的 lock 都出现过之后把 `pll_ready` 锁存为 1，`assign ext_rst_n = rst_n & pll_ready;`。这样既保留讲义"PLL 锁定后才释放复位"的语义，又避免运行期某路 lock 抖动把整个系统拉回复位（现象为画面周期性闪黑）。
+  - 文件内以注释保留了**写法 A**（讲义原文的"三路 lock 直接相与"，一行），如需逐字照讲义，注释掉 B 段、启用 A 段即可。
+  - `reset_sync`（异步断言/同步释放）与 `sync_2ff`（Sdr_init_done 跨域）结构未变。
+- 约束（本次修改 `timing.sdc`）：
+  - `ext_rst_n` 现在由内部寄存器 `pll_ready` 驱动，属异步复位网络；新增 `set_false_path -from [get_regs -hier {pll_ready}]`。
+  - 注意对象命名：SDC 阶段该寄存器叫 `pll_ready`，报告里才显示为 `pll_ready_reg`；写成 `*/pll_ready_reg` 或 `pll_ready_reg` 都会触发 `USR-6001 / USR-8159`（命令不生效）。已实测确认 `{pll_ready}` 可正确匹配。
+- 工具验证（综合门禁，改动前后对比）：
+  - 无 ERROR；`sync_2ff` 三个实例正常展开。
+  - Setup WNS `-2127 ps` 不变，Setup TNS `-62077 ps`（改动前 `-69629 ps`），Hold WNS `+421 ps` / 0 违例。
+  - 恢复/移除检查项：不加约束时为 19 个（新增的 8 个全部是 `pll_ready → u_{sdcard,mem,video,audio}_reset/s2` 的异步复位路径）；加 `set_false_path -from {pll_ready}` 后回到改动前的 **11 个**，即没有新增任何时序检查项。
+- 板卡验证状态：本版尚未经用户下载验证。需复测：① 断电重启 10 次每次都能出首图（证明 lock 门控不会卡住启动）；② 连续观察画面 1 分钟无周期性闪黑/重启（若出现，说明某路 lock 在抖动，改用写法 B 已尽量避免，必要时把该域从相与条件中移除）；③ 上电时序观察数码管从 `0` 到 `1` 的过程是否正常。
+- 回退：把顶层 A2 段（两个 `.extlock` 连接、三个 `sync_2ff`、`pll_ready` 块）删除并恢复 `assign ext_rst_n = rst_n & audio_pll_lock;`，同时删除 `timing.sdc` 中 `set_false_path -from [get_regs -hier {pll_ready}]`；`.ipc` 中的 `pll_lock` 可以保留（只是多一个未被使用的输出）。
+
+本次功能（跨域伪违例清理：异步时钟分组 + `display_valid` 同步器）：
+- 背景：A2 之后那次 PnR（bitstream `2C391AE6…`、随后 `B4B5D837…`）报 **Hold WNS -1590 ps / TNS -2497 ps / 33 个失败端点**。按 path group 分解：`video_clk->video_clk` -0.070 ns/31 点、`video_clk->ext_mem_clk` **-1.590 ns/1 点**、`ext_mem_clk->ext_mem_clk` -0.038 ns/1 点。
+- 关键日志证据：TD 的 route 流程在 `Stage 3 | Hold Fix` 直接放弃并打印
+  `RUN-1001 : Too much hold violation, please check the src code.`，
+  随后 DRC 阶段打印
+  `PHY-5089 WARNING: Skip 1 abnormal timing path ... hold slack is less than -1000ps ... If need to fix these hold violation, place turn on hold fix high.`
+  即：那条 -1.590 ns 被 TD 判为“异常时序路径（hold < -1000 ps）”，导致**整个 hold fix 阶段被跳过**，其余 31 条 -0.070 ns 的小违例也一并没被修。对照：`fix_hold` 参数确已为 `on`（route 参数表 `fix_hold | on | on`），`arr_filter` 为 `false`（GUI 重跑会按策略重写 `settings.cfg`，本次不再手工改该文件）。
+- 根因判定（逐条核对源码，不是猜测）：该 -1.590 ns 路径是 `video_clk -> ext_mem_clk` 的**跨域握手伪违例（报告里预算为 0.000 ns）**，不是布线延时问题，`fix_hold` 插延时也修不了：
+  - `frame_fifo_read.v`：`read_req` 经 `read_req_d0/d1/d2` **三级同步**进 mem_clk，`read_len`/`read_addr_index` 各两级（源码注释即写明 synchronize to mem_clk）；
+  - `frame_fifo_write.v`：`write_req` 同样三级同步；
+  - 像素数据通路走真双时钟异步 FIFO，其时序约束由 `IpSDCList` 传入的 `afifo_16_32_256.tcl` / `afifo_32_16_256.tcl` 提供；
+  - 跨域显示控制 `disp_buf_idx` 在 `frame_read_write` 内部经 `read_addr_index_d0/d1` 同步。
+- 修改一（`timing.sdc` 第 6 节）：启用原作者预留、此前被注释掉的异步时钟分组，把 `sd_card_clk` / `ext_mem_clk` / `video_clk` / `hdmi_5x_clk` 两两设为 asynchronous。效果：0 ns 预算的跨域握手路径不再被当作同步路径分析，TD 的 "Too much hold violation" 放弃条件不再触发。已在注释里写明启用依据与风险（跨域 setup 也不再计入报告，跨域正确性由 2FF/FIFO 设计保证）。
+- 修改二（`top_tf_hdmi_audio.v`）：`display_valid` 由 `sd_card_clk` 域产生、在 `video_clk` 域直接使用，是工程里**唯一**没有同步器的跨域信号；按第六讲 §4.4/§2.9-3 新增 `sync_2ff u_display_valid_sync`（`RESET_VAL=0` 即“尚无可显示帧”），显示改用同步后的 `display_valid_vid` 门控。禁用异步分组前它未被报违例，但属于潜在亚稳态风险，一并修正。
+- 工具验证（综合门禁）：无 ERROR；SDC 全部匹配（无 `USR-6001/USR-8159`）；**与已有 `video_clk/hdmi_5x_clk -exclusive` 声明无冲突警告**；Setup WNS `-2127 ps`、Hold WNS `+421 ps` / 0 违例。
+- 待办：**由用户重跑 phy 流程**（GUI Run 或 `phy_1\run.bat`），验收标准为——日志中不再出现 `Too much hold violation`；`route_flow.status` 的 `Hold` 为 **WNS ≥ 0 且 NUM_FEPS = 0**；随后用新 bitstream 重新烧写 Flash 再做长稳。
+- 备用手段（若重跑后仍有严重 hold 残留）：按 TD 提示开启 `opt -hold_fix`（TD 安装目录 `doc/.../help_comment_opt.json`：`-hold_fix` = "Do hold fixing with severe violations in pre-route stage"，GUI 中即布局/优化阶段的 Hold Fix 选项，Tcl 中为 `opt -hold_fix`）。
+
+板卡验证结果（用户反馈，2026-10-07）：
+- 重跑 phy 后：日志中不再出现 `Too much hold violation`；`route_flow.status` 为 **Setup WNS -2152 ps / TNS -108980 ps / 201 端点，Hold WNS +36 ps / TNS 0 ps / 0 端点**。
+- 新 bitstream：`src\td_project\HDMI1.4b_Transmitter_v1.0_Runs\phy_1\HDMI1.4b_Transmitter_v1.0.bit`，MD5 `85ED31EBC32AD6D2BF9EFED33D4FCC2F`；**用户已下载并完成板卡测试，结果无误（含 Flash 固化后的断电重启测试）**。
+- 结论：启用异步时钟分组 + 为 `display_valid` 补同步器后，**Hold 已完全收敛**；此前 33 条 hold 违例（含 31 条被拖累的同域小违例）全部消失。
+
+剩余 Setup 违例分析与处理（2026-10-07）：
+- 收敛后的时序只剩两个域有问题：`sd_card_clk -> sd_card_clk` **-2.152 ns / TNS -107.914 / 196 端点**、`ext_mem_clk -> ext_mem_clk` -0.283 ns / 5 端点；其余域（video/audio/hdmi_5x/clk/sd_card→clk）全部为正。
+- 关键路径结构（综合报告实测）：起点 `u_scanner/sectors_per_cluster_reg`，经 `sectors_per_cluster` 的高扇出走线（fo=87，+1.27 ns）→ `spc_shift` 译码与移位 mux 链（+3.55 ns）→ 三级移位器（+2.96 ns）→ 32 位加法进位链（+1.24 ns）→ 终点 `u_streamer/sector_lba_reg`。即"spc 走线 + 移位译码 + 移位 + 32 位加"全在同一周期。
+- 已做（`fat32_file_streamer.v`）：把簇→LBA 的 `(cluster-2) * sectors_per_cluster` 改为 `(cluster-2) << spc_shift_f(sectors_per_cluster)`，与 `fat32_volume_scanner.v` 的写法一致。**依据**：扫描器的 `valid_spc()` 已强制 `sectors_per_cluster` 为 2 的幂，故移位与乘法数值完全等价。效果：Setup WNS `-2127 ps` → `-1983 ps`（改善有限，说明瓶颈不只是乘法）。
+- 待用户确认的下一步方案：在 `fat32_file_streamer.v` 里为簇→LBA 计算**插入一级流水**（新增 `cluster_offset` 寄存器与一个过渡状态：第一拍算 `(cluster-2)<<shift`，第二拍算 `data_start_lba + cluster_offset` 后再进 `ST_DATA_REQ`）。代价为每次换簇多 1 个时钟周期（一张 640x480 图约 226 个簇 → 约 2.3 µs，可忽略）；收益为把约 7 ns 的组合链拆成两段各约 5.6 ns / 2.1 ns，可使 `sd_card_clk`(100 MHz) 域真正收敛。因该文件是第七讲参考 RTL，改动需用户确认后再执行。
+
+本次功能（`timing.sdc`，第六讲 §2.6.5 第5条）：
+- 新增 `rename_clock` 为 `ext_mem_clk_sft`（`sys_pll_m0/pll_inst.clkc[2]`）命名；否则第5条约束引用不到该时钟而静默失效。
+- 新增双向 `set_false_path -from/-to [get_clocks {ext_mem_clk}] / {ext_mem_clk_sft}`。
+
+本次功能（`.al` 工程文件）：
+- 问题：该文件清单落后于源码——仍登记 `bmp_read.v`，且缺 `reset_sync.v`、`sync_2ff.v`、`fat32_volume_scanner.v`、`fat32_file_streamer.v`、`sd_sector_adapter.v`（这 5 个文件均已被 `top_tf_hdmi_audio.v` / `sd_card_bmp.v` 例化），而运行目录的 `.prj` 是正确的。用 TD 打开该 `.al` 重新综合会报黑盒错误（历史同类错误见 `syn_1\td_20261006_153257.log:261` 的 HDL-8007）。
+- 修改：删除 `bmp_read.v` 条目，新增上述 5 个文件条目（CompileOrder 44~48）。修改后 `.al` 与 `syn_1`/`phy_1` 的 `.prj` 文件清单一致（均 49 项）。
+
+未修改模块：
+- SDRAM、异步 FIFO、`frame_read_write`、视频时序与视频延迟、HDMI 1.4b 加密核、HDMI PHY、SD SPI 底层（`sd_card_top`/`sd_card_cmd`/`spi_master`/`sd_card_sec_read_write`）、三个 PLL IP。
+- `top_tf_hdmi_audio.v` 的端口与内部连接未改动；`fat32_volume_scanner.v` / `fat32_file_streamer.v` / `sd_sector_adapter.v` 保持讲义版本（含此前记录的 `0x04` 分区类型兼容与根目录整簇扫描两处读卡兼容）。
+
+工具验证（本机 `D:\App\TD\bin\td_commands_prompt.exe`，在临时校验目录中执行，执行后已删除该目录）：
+- 综合 `read_design`/`elaborate`/`opt_rtl`/`opt_gate` 全部完成，共分析 49 个源文件，无 ERROR，无本次 RTL 的语法或端口错误。
+- 综合 QoR 对比（同一流程，改动前为 `syn_1` 上次结果）：Setup WNS `-5291 ps` → `-2127 ps`；Setup TNS `-292301 ps` → `-64756 ps`；Hold WNS `+421 ps` 不变；registers 4896 → 5111；LUTs 3743 → 3973；slices 861 → 956；RAM 20、DSP 5 不变。
+- 约束生效证据：时钟表中原 `sys_pll_m0/pll_inst.clkc[2]` 已命名为 `ext_mem_clk_sft`，其与 `ext_mem_clk` 之间的路径不再计入（CC-From/CC-To 均为 no）；`ext_mem_clk` 域 Setup 负裕量由 -6.699 ns 量级降到 -0.393 ns。
+- 当前最差时钟域变为 `sd_card_clk`（100 MHz，Setup WNS `-2.127 ns`，估算 Fmax 约 82 MHz）；其最差路径来自 `fat32_file_streamer.v` 的“簇→LBA”计算（32 位乘加），属第七讲参考 RTL 原样引入，本次未改动该文件。
+- 本次未执行物理实现（place/route/bitgen），未生成新的 bitstream。
+
+板卡验证状态：
+- 本次未上板，不能宣称第五讲 5 项优化已通过硬件验证。需由用户在 TD 中综合、实现、下载后复测：
+  1) 四张正常 `PICn.BMP`：上电显示、KEY1 下一张、KEY2 短按轮播、KEY2 长按上一张、数码管 1~4；
+  2) 第五讲 §2.10 坏头素材（`doc\TF卡图片\第五讲_稳定性异常测试` 01~08 号）应被跳过并显示 `9`（ERR_HEADER），不得花屏；
+  3) 截断素材（09 号，100000 字节）应显示 `B`（ERR_TRUNCATED），画面保持上一张完整图，且按键与轮播仍可用（不得再出现卡死）；
+  4) 缺失 `PIC3.BMP` 时应播放 PIC1/PIC2/PIC4；
+  5) 拔卡或接触不良后数码管应出现 `A`（ERR_TIMEOUT）。
+- 回退顺序：本次三个文件的 `.bak_20261007_lesson5_port` → 上一版 bitstream 备份 `6C18062E`。
+
+已知未完成 / 仍需注意：
+- 第五讲 §2.7 快速启动（选做）未做；§2.6 未把 `bmp_width/bmp_height` 由端口改为 parameter（为保持顶层接口不变）。
+- 第六讲 §2.2：三个 PLL 的 `locked` 仍未全部参与复位——生成的 `sys_pll.v`/`video_pll.v` 未引出 `pll_lock`，需在 TD 中重新生成 PLL IP 才能实现（属工具操作）。
+- 第六讲 §2.4：Flash 固化、断电重启与长稳测试仍未执行；`sd_card_clk` 域时序未收敛，长稳测试前建议先处理该违例。
+- 第四讲 §4.1 的完赛级音频模块（`pcm_test_tone`/`pcm_media_tone`/`media_hdmi_audio_bridge`/`hdmi_audio_symbol_core`）与 `media_id` 切图联动音调未接入；当前音频仍是“内部正弦测试音 + 加密 HDMI IP 内部组包”的官方简化路径。
+- `SD\bmp_read.v`、`SD\fat32_bmp_reader.v`、`key_remove_shakes.v`、`hdmi_audio_tone_pcm_scale.v` 目前均为死文件（无例化），是否清理待定。
+
+----------------------------------------------------------------
+
+日期：2026-10-07（前七讲定版 L1–L7 Baseline）
+
+定版产物：
+- bitstream：`doc\前七讲定版\HDMI1.4b_Transmitter_v1.0_L1-L7_85ED31EB.bit`（629624 bytes）
+- bitstream MD5：`85ED31EBC32AD6D2BF9EFED33D4FCC2F`（对应 `phy_1` 中 2026-10-07 14:27:16 的构建）
+- 文件清单（全部源码 MD5）：`doc\前七讲定版\MANIFEST_MD5.txt`
+- 定版说明（范围、验证结论、已知限制、复现与回退）：`doc\前七讲定版\定版说明.md`
+
+定版前的对齐处理：
+- 发现 `SD\fat32_file_streamer.v` 的修改时间（14:29:59）晚于 bitstream（14:27:16），即**板测通过的 bitstream 不含**"移位替代乘法"那次改动。为满足"冻结源码 = 板测产物"，已把该文件回退为讲义原版（MD5 恢复为 `93957F4CD4D26DC8278BAA42A3CD329C`，与第八讲分支副本一致）。移位与流水线一并留待第八讲处理。
+- 回退后已确认：`src\user_source` 下所有源码内容与 14:27 的构建一致（唯一被改动的文件已还原）。
+- `.al` 的 49 个引用文件全部存在（移动死文件与备份后复查）。
+
+配套清理（不动 RTL，故现有 bitstream 依然有效，无需重新综合/下载）：
+- 死文件归档：`SD\bmp_read.v`、`SD\fat32_bmp_reader.v` → `doc\archive\`
+- 历史备份归置：`src` 下 28 个 `*.bak_*` → `doc\backup\`（保留原有相对路径）
+- 文档更新：`代码说明.md`（防死锁机制描述 + 定版信息）、`设计参考例程文档.md`（3.2.2 改为 FAT32 三模块、轮播周期 3 s、按键长按上一张）、`doc\convert\README.md` 与 `sync_to_sd.py`（改为输出/命名 `PIC1.BMP`~`PIC4.BMP`，并默认不再破坏旧 BMP 的 `BM` 头）
+
+板卡验证结论（用户实测）：
+- 断电重启、**30 分钟长稳**、**100 次按键**全部通过；板卡整体功能测试无误（含 Flash 固化后上电自启）。
+
+定版时的时序：
+- Hold：WNS `+36 ps`、TNS `0`、**0 个失败端点（已收敛）**
+- Setup：WNS `-2152 ps`、TNS `-108980 ps`、201 个失败端点（`sd_card_clk` 域 196 + `ext_mem_clk` 域 5），**未收敛**，处理计划见定版说明 §4.1
+- 资源：LUT 6604/19600（33.69%）、REG 5299/19600（27.04%）、BRAM 20/64、DSP 5/29、PLL 3/4
+
+前七讲修正汇总（便于答辩/交接，逐条含依据）：
+
+| # | 项目 | 文件 | 依据 |
+|---|---|---|---|
+| 1 | 读卡兼容①：MBR 分区类型 `0x04` 兼容 | `fat32_volume_scanner.v` | 适配实际介质（讲义白名单 0x0B/0x0C） |
+| 2 | 读卡兼容②：根目录首簇全部扇区扫描 | 同上 | 讲义原版只读第一个扇区 |
+| 3 | 读卡兼容③：8.3 文件名比较大小写不敏感 | 同上 | Windows 按输入原样写盘；讲义版只认大写会误判“找不到图片” |
+| 4 | 读卡兼容④：**根目录簇链遍历**（新增 3 个状态读 FAT） | 同上 | 修讲义自承局限（§4.1 只读第一个簇，超一簇就扫不到） |
+| 5 | 第五讲 5 项必做迁移到 FAT32 生效路径 | `sd_card_bmp.v` | 第五讲 §2.1~§2.5、§2.2 恢复策略 |
+| 6 | 槽位导航 + 数码管错误码（9/A/B/C/D/E）+ 截断死锁修复 | `sd_card_bmp.v` | 讲义只要求“上层可提示”，编码为本工程自定义 |
+| 7 | 第六讲第 5 条约束 + 移位时钟 `rename_clock` | `timing.sdc` | 讲义 §2.6.5 第 5 条；rename 为必需补充 |
+| 8 | 第六讲 A2：三路 PLL `lock` 参与复位（写法 B + 2FF 同步） | `top_tf_hdmi_audio.v`、`*.ipc` | 讲义 §2.2 必做；加固部分以注释保留写法 A |
+| 9 | 异步时钟分组（`sd_card_clk`/`ext_mem_clk`/`video_clk`/`hdmi_5x_clk`） | `timing.sdc` | 讲义 §3.3 方向；开启前已核对 req 三级同步 + 异步 FIFO |
+| 10 | `display_valid` 补 `sync_2ff` | `top_tf_hdmi_audio.v` | 讲义 §4.4/§2.9-3 跨域规则 |
+| 11 | `.al` 工程清单同步（+5 文件、−`bmp_read`） | `HDMI1.4b_Transmitter_v1.0.al` | 修复“GUI 重编译报黑盒”问题 |
+
+已知未完成（详见 `doc\前七讲定版\定版说明.md` §4）：
+- Setup 收敛（`sd_card_clk` 流水线 + `ext_mem_clk` 5 端点）：**决定与第八讲第一轮移植一起做**
+- 第四讲音频的实测（48 kHz/声道/音色/音量/音视频同步）——当前显示器无音频输出
+- 讲义选做项与完赛架构模块（第八讲及以后逐步引入）
+- 工程清单中仍存在的两个无例化文件（`key_remove_shakes.v`、`hdmi_audio_tone_pcm_scale.v`）未清理（需改 `.al` 并重跑综合确认）
+
+----------------------------------------------------------------
+
+日期：2026-10-07（第八讲：四 bank 帧缓存架构 + 流水线 + 部分选做项）
+
+基线：前七讲定版 `85ED31EB…`（`doc/前七讲定版/`）。完整方案见 `doc/第八讲移植方案.md`。
+
+## 一、架构替换（讲义 §3.4 / §5.0）
+
+删除：`frame_read_write`、`video_timing_data`、`video_delay` 三个实例。
+新增文件（讲义原文件，字节级复制）：`media_frame_loader.v`、`media_frame_reader.v`、`media_player_control.v`、`media_sdram_write_cdc.v`、`fifo_prefetch_2.v`、`video_timing_ctrl.v`、`rgb_video_adapter.v`；**另加** `fast_boot_gate.v`（第三讲选做，见第四节）。
+**未加**讲义附带的 `afifo_32_16_256.v`：本工程 TD 生成的 `IP/afifo_32_16_256.v` 就是模块 `rfifo_32_32_512`，端口逐条一致，重复加入会重名；其 IP 时序约束仍由 `settings.cfg` 的 `IpSDCList` 提供。
+工程清单 `.al` / `syn_1.prj` / `phy_1.prj` 三处同步为 **57 项**（`fast_boot_gate.v` 为第 57 项）。
+
+## 二、与讲义 §5.4 的差异（逐条含依据）
+
+| # | 差异 | 依据 |
+|---|---|---|
+| D1 | `media_frame_loader` 的 `clk` 用 **sd_card_clk**（与像素源同域），其 `app_wr_*` 经 `media_sdram_write_cdc` 跨到 `ext_mem_clk` 再连 SDRAM；不采用讲义 §5.4 的"loader 接 ext_mem_clk 并直连 SDRAM" | 讲义 §5.4 line 1314 自述："loader 的时钟是 ext_mem_clk，而 sd_card_bmp 的 BMP 解析工作在 sd_card_clk 域……如果频率不同，需要在 BMP 解析和 loader 之间加异步 FIFO"。本工程 100/125 MHz **不同频**，且 `media_sdram_write_cdc` 正是为此提供 |
+| D2 | `frame_commit` 在"第 307200 个像素写入后"产生（用已有 `pixel_count`），不用文件读完信号 | 讲义 §5.4 修改点 7 的 `bmp_ready` 语义警告（否则 loader 报 `ERR_SHORT_FRAME`） |
+| D3 | 四 bank 预加载 FSM 放在 `sd_card_bmp`（`next_preload()` 从"有效 && 未屏蔽 && 未装载"中挑槽位，槽位号即 bank 号） | 讲义把该状态机列为"顶层或 sd_card_bmp 内"；放此处可集中保留第五讲校验/错误码/超时/重试 |
+| D4 | `video_timing_ctrl` 用 **ACTIVE_LAST=0** | 官方 `color_bar` 的 640×480 参数（H 640/16/96/48、V 480/10/2/33、负极性）与本模块逐项相同，标准顺序为"有效区→前肩→同步→后肩"；讲义 §5.4 修改点 6 自注为示例写法 |
+| D5 | 新模块复位用各自时钟域的同步复位（`sdcard_rst_n`/`mem_rst_n`/`video_rst_n`） | 第六讲改造后本工程已无讲义中的 `rst_all` |
+| D6 | `Sdr_busy`/`Sdr_init_ref_vld` 经 `sync_2ff` 同步进 sd_card_clk 供 loader 使用 | 第六讲 §4.4/§2.9-3；loader 目前只用到 `controller_init_done`，另两路按接口要求正确接入 |
+
+对参考模块的**唯一扩展**：`media_player_control` 增加 `prev_event` 输入与 `prev_available()` 函数（第三讲要求 KEY2 长按=上一张，原模块只支持"下一张"）。
+
+## 三、时序：流水线优化（本轮重点）
+
+`fat32_file_streamer.v`：
+- 新增状态 `ST_DATA_LBA` 与寄存器 `cluster_offset`：第 1 拍算 `(cluster-2) << spc_shift_r`，第 2 拍算 `sector_lba <= data_start_lba + cluster_offset`；`ST_IDLE` 首次加载与 `advance_to_next_cluster()` 都改走该状态；
+- 新增 `spc_shift_f()` 与 `spc_shift_r` 寄存器（自由运行锁存 `sectors_per_cluster` 的 log2），把高扇出的 spc 译码网络移出关键路径；
+- 原 `(cluster-2) * sectors_per_cluster` 乘法改为移位，**数值等价**（扫描器 `valid_spc()` 强制 spc 为 2 的幂）；代价为每换簇多 1 拍（约 2.3 µs/帧）。
+
+`fat32_volume_scanner.v`（同类路径，一并处理）：
+- 新增状态 `ST_ROOT_LBA_ADD` 与寄存器 `root_offset`：根目录首簇（`ST_BOOT_ROOT`）与根目录簇链推进（`ST_ROOT_FAT_PARSE`）都改为"第 1 拍算偏移、第 2 拍做 32 位加法"。
+
+**结果**：综合 Setup **WNS 由 -2127 ps → +110 ps，TNS 0，违例端点 0**；Hold **+421 ps / 0 端点**——整设计在综合级**无任何时序违例**（此前最差路径为 `sd_card_clk` 域的簇→LBA 组合链）。
+
+## 四、选做项（本轮完成 2 项，其余说明理由）
+
+已完成：
+1. **第三讲 §2.7 / 第五讲 §2.7 `fast_boot_gate`**：已在顶层例化（放在 sd_card_clk 域，只把 `first_image_ready` 单位同步进 video_clk），替换原先的"任一 bank 完成"内联门控。**一处有注释的修正**：参考实现为 `image_complete[0]`（假定 0 号图先装完），本工程预加载会跳过缺失槽位（例如只有 PIC2~PIC4），直接用会永久黑屏，故改为 `|image_complete`。
+2. **第五讲 §2.6 参数集中化**：`sd_card_bmp` 删除 `bmp_width`/`bmp_height` 两个端口，分辨率只由参数 `BMP_WIDTH_P`/`BMP_HEIGHT_P` 定义（BMP 头校验与 `EXPECTED_PIXELS` 均使用参数）；顶层相应去掉常量连接。
+
+明确**推迟或不做**（含理由）：
+- **第三讲 §2.8 `seg7_panel`**：该模块有 PIC/VOL/PRD 三页，但**没有错误码页**；现有数码管承载第五讲要求的错误码上报（9/A/B/C/D/E）。等第十四讲 `param_menu_controller` 引入音量/亮度页后再合并（那时 VOL/PRD 页才有实际意义）。
+- **第三讲 §2.9 `media_policy` / `dual_key_chord_router` / `dual_key_long_hold_guard`**：`media_policy` 与第十四/十五讲的菜单（`menu_up/down/select`）及音频联动绑定，且与 `media_player_control` 职责重叠；`dual_key_*` 会替换前七讲**已板测通过**的消抖/长按逻辑。均留到第十四/十五讲一并落地。
+- **第五讲 §2.11 `media_recovery_fsm`**：本项目 `sd_card_bmp` 内的"重试 1 次 → 屏蔽坏图 → 下一个槽位"阶梯已实现同等功能且板测通过；替换为独立 FSM 属架构对等重构，收益低于风险。
+- **第五讲 §3.3 `status_osd_overlay`**：参考文件为 **12 位 RGB** 接口（`in_rgb[11:0]`），接入本工程 24 位通路会损失色彩深度（照片出现色带），不可接受；OSD 属**第九讲**交付物（该讲提供 `osd_overlay_24.v`/`promax_text_overlay.v` 等 24 位版本），留到第九讲做。
+- **第四讲 §4.1 音频完赛模块与 `media_id` 联动**：当前显示器无 HDMI 音频输出，无法验收；且第十一讲（WAV 播放）会重构音频链路，届时统一接入更合理。
+- **第六讲 §2.11 配置持久化（`player_config_persistence`/`w25q64_record_store`）**：涉及运行期 SPI Flash 访问，属较大改动，留待专门阶段。
+- **第五讲 §3.1 `bmp24_decoder` 独立化**：属对已验证 BMP 解析逻辑的重构，收益（代码整洁）低于风险；如需可在板测通过后单独进行。
+
+## 五、验证状态
+
+- **每步均过 TD 综合门禁**（`read_design`/`elaborate`/`opt_rtl`/`opt_gate`），无 ERROR；最终 Setup WNS +110 ps / TNS 0 / 0 端点，Hold +421 ps / 0 端点。
+- **尚未做 PnR 与板卡测试**（待用户执行）。板测重点：四张图是否全部预加载；按 KEY1/KEY2 切换时**是否不再读卡**、无黑屏/撕裂；KEY2 长按=上一张；自动轮播约 3 s；坏图/缺图屏蔽；数码管读数（1~4 = 当前显示 PIC，9/A/B/C/D/E = 错误）。
+- 回退：`top_tf_hdmi_audio.v.bak_20261007_pre_lesson8`、`sd_card_bmp.v.bak_20261007_pre_lesson8`、两份 `*.prj.bak_20261007_pre_lesson8`；前七讲定版 bitstream 在 `doc/前七讲定版/`。
+
+## 六、顶层"显示 bank 安全回退"（功能隐患修复）
+
+问题：`media_player_control` 复位后 `active_index = 0`，而四 bank 预加载会**跳过缺失槽位**（例如卡里没有 PIC1，只会装载 bank1~bank3）。此时 reader 仍按 `active_index = 0` 去读 **从未写入过的 bank0**，而显示门控只要求"任一 bank 就绪"→ 会显示未初始化的 SDRAM 内容（花屏）。
+
+修复（`top_tf_hdmi_audio.v`）：新增 `ctrl_active_index` / `display_bank` 两个网络
+```
+first_ready_bank = loader_image_complete[0] ? 0 : [1] ? 1 : [2] ? 2 : 3
+display_bank     = loader_image_complete[ctrl_active_index] ? ctrl_active_index : first_ready_bank
+```
+- `active_index` 对应的 bank 已装载 → 按 `active_index` 读（控制权完全归 `media_player_control`）
+- 否则（上电初期 / 目标 bank 未装载）→ 读"第一个已装载完成的 bank"
+
+依据：`media_frame_reader` 在 `frame_start` 处采样 `active_index`（源码 line 181），因此换 bank 只会在帧边界生效，不会帧内撕裂；helper 也复用了同一套 bank 基址公式（0 / IMAGE_WORDS / 2× / 3×，与 loader 一致）。
+验证：综合门禁无 ERROR，Setup WNS +110 ps / TNS 0 / 0 端点，Hold +421 ps / 0 端点。
+
+## 七、构建事故与规避（重要，务必保留）
+
+**现象**：TD 中运行综合时 8 个新模块全部报 `HDL-8007 ERROR: ... is a black box`。
+
+**根因**：TD **工程打开期间，GUI 内存里的文件列表才是权威**。助手在磁盘上把 8 个新模块加进 `.al` 后，用户侧打开的仍是加文件之前的工程；一旦 GUI 运行/保存，就把旧列表（49 项）写回磁盘：
+```
+15:31:09  GUI 把 .al 写回 49 项（8 个新模块被删）
+15:31:12  按 49 项重新生成 syn_1.prj / phy_1.prj
+15:31:13  read_design 失败：新模块全部 black box
+15:34:08  GUI 再次把 .al 写回 49 项（工程仍开着）
+```
+
+**规避**：
+1. 助手修改工程清单（`.al`/`.prj`）前，**用户先把 TD 工程关掉**；改完再打开。工程里能看到 **57** 个 Verilog 文件才算正确（少一个都会黑盒）。
+2. 或改由**用户在 GUI 里 Add Files**（GUI 加的文件会同时写回 `.al`，两边一致）。
+3. 一键恢复：`doc\backup\lesson8_project_lists\restore_project_lists.bat`（内含 57 项的三份清单副本；先关 TD，再双击，然后重开工程核对 57 项）。
+4. 命令行路线不受影响：运行目录的 `.prj` 才是流程真正读取的清单；`syn_1\run.bat` / `phy_1\run.bat` 直接读它。注意 `run.bat` 调用的 vendor `DefaultFlow.tcl` 若用反斜杠绝对路径传参会**被 Tcl 当转义吃掉**（`D:\App\TD\...` → `D:AppTD...` 报 no such file），用运行目录自带的流程脚本、只传文件名即可。
+
+**影响**：仅构建中断，源码与产物未受损（已核对 `display_bank`/`bank_loaded`/`next_preload`/`ST_DATA_LBA`/`ST_ROOT_LBA_ADD` 等标记均在）。
+
+## 八、板测问题定位：数码管恒显 `A` + 黑屏（已修复，待复测）
+
+**现象**：第八讲 bitstream（MD5 `109CCEC4…`）烧录后，数码管持续显示 `A`（= ERR_TIMEOUT），屏幕全黑。
+
+**定位过程**：
+- `A` 只可能来自"500 ms 内无任何扇区/字节进展"的看门狗。若扫描一张都没找到会显示 `C`（ERR_NO_IMAGE），所以**扫描是成功的**（`scan_resource_valid != 0` ✓，否则 `use_streamer`=0 且不会走加载超时分支）。
+- 于是问题在"加载启动了、但没有任何 bank 完成装载"，同时加载期间 SD 层无活动。
+
+**根因**（`SD/sd_card_bmp.v`）：流读取器的启动脉冲被**已删除模块的握手**锁死：
+```verilog
+if (load_start_pulse) write_req_reg <= 1'b1;
+if (write_req_reg && write_req_ack) begin ... file_start_pulse <= 1'b1; end
+```
+`frame_read_write` 已在第八讲删除，顶层未连接的 `write_req_ack` 恒为 0 → `file_start_pulse` **永远不触发** → FAT32 流读取器（`fat32_file_streamer`）从不启动 → 加载期间 SD 无扇区活动 → 500 ms 后看门狗命中 → `bmp_error = ERR_TIMEOUT`（数码管 `A`），且没有任何 bank 装载完成 → 显示门控关闭 → 全黑。
+
+**修复**：直接由加载启动脉冲驱动（`file_start_pulse <= load_start_pulse;`），不再经过旧握手。综合门禁通过、无 ERROR。
+
+**重要更正（时序）**：修复前门禁显示 "Setup +110 ps / 0 端点"，这是**假象**——`file_start_pulse` 恒 0 使整条 BMP 解析 + 像素流逻辑被综合当作死代码剪除。修复后真实结果为：
+- Setup **WNS -438 ps / TNS -101812 ps / 244 端点**，全部在 `sd_card_clk -> sd_card_clk`；
+- 最差路径在 `media_frame_loader` 内部：`fifo_count_reg[*] → 推断 RAM 的使能`（`u_media_frame_loader/ramread0_syn_*.e[0]`）。该模块按完赛工程的 **40 MHz mem_clk** 设计，在 100 MHz 的 `sd_card_clk` 域控制路径偏紧；
+- Hold 仍为 +421 ps / 0 端点（IP 内部那 36 个 -75 ps hold 端点由 `opt -hold_fix` / 独立 `fix_hold` 尝试收敛，见下一节）。
+
+**处理顺序（刻意的）**：先让功能跑通（只改这一处逻辑，便于归因），再单独处理 `media_frame_loader` 的控制路径时序。当前时序与"前七讲定版"（Setup -2152 ps）属同一量级，而前七讲定版已通过 30 分钟长稳测试，故功能复测的风险可控。
+
+## 九、两个流程级错误与最终验证过的配置（2026-10-07 第 6 轮）
+
+**错误 1：`opt -hold_fix` 不是本流程的合法命令** ✗
+按 TD 文档 `help_comment_opt.json` 的 `-hold_fix` 说明，我在 `phy_1` 流程脚本的 opt_place editable zone 里加了 `opt -hold_fix`，结果运行到布局阶段直接失败：
+```
+RUN-1003 : finish command "place" ...
+invalid command name "opt"
+```
+已从 `HDMI1.4b_Transmitter_v1.0.tcl.bak_20261007_pre_holdfix_l8` **字节级恢复** vendor 原版 ✓。**结论：hold 只走流程脚本里已有的合法命令 `fix_hold`**（由 `arr_filter on` + `drHoldFix on` 触发，在 route 之后单独调用）。
+
+**错误 2：手工改 `settings.cfg` 在 GUI/启动器运行时会失效** ✗
+TD 在每次运行开始时会**重新生成** `settings.cfg`（实测：手工设的 `arr_filter on` 被写回 `false`）。而**直接命令行**运行流程（`td_commands_prompt.exe <本目录的 tcl>`）会按磁盘上的 `settings.cfg` 执行 ✓。故新增：
+- `syn_1\run_local.bat`、`phy_1\run_local.bat`：`cd /d %~dp0` 后用**相对 tcl 名**调用，避免 `run.bat` 的反斜杠绝对路径被 Tcl 当转义吃掉（`D:\App\TD\...` → `D:AppTD...` 报 no such file）。
+
+**验证过的配置与结果**（在独立实验目录 `_v6_syn`/`_v6_phy` 中跑完整 syn+phy，未触碰用户运行目录）：
+
+| 项 | 结果 |
+|---|---|
+| 综合（当前 RTL，含功能修复） | Setup **-438 ps / TNS -101812 / 244 端点**；Hold +421 ps / 0 端点 |
+| 布局 | Setup **+2545 ps / 0 端点**（FMAX 134 MHz）；Hold -61 ps / 84 端点 |
+| **最终（route + 独立 fix_hold）** | Setup **-5 ps / TNS -5 ps / 1 端点**；**Hold +21 ps / TNS 0 / 0 端点** ✓ |
+| 日志 | **不再出现** `Too much hold violation` ✓（独立 `fix_hold` 成功收掉了包括 IP 内部在内的全部 hold） |
+| 分域 | 仅 `sd_card_clk -> sd_card_clk` 剩 1 个端点（-5 ps）；video/mem/audio/hdmi/clk 域 Setup 与 Hold 全清 |
+
+**交付物**：
+- 可用 bitstream：`doc\第八讲验证\HDMI1.4b_Transmitter_v1.0_L8_6466F096.bit`（MD5 `6466F0966B9E591EB3CB59B1B3FA6B1C`），并已放入 `phy_1\HDMI1.4b_Transmitter_v1.0.bit` ✓
+- 旧的有缺陷版本改名为 `phy_1\HDMI1.4b_Transmitter_v1.0_STALE_109CCEC4_broken.bit`（MD5 `109CCEC4…`，**请勿烧录**），并在 `phy_1\README_bitstream_provenance.txt` 记录来历
+- `phy_1\settings.cfg` 已写入 `arr_filter on` + `arr_rwns -100000`（配合 `run_local.bat` 生效）
+
+**遗留**：`media_frame_loader` 内部 `fifo_count → 推断 RAM 使能` 这条路径在 100 MHz 下差 5 ps（该模块按完赛工程 40 MHz mem_clk 设计）。已在综合级 244 端点、布线后收敛到 1 个 5 ps 端点；计划后续按需处理（给 FIFO 使能/计数比较加一级寄存器，或减小 FIFO_DEPTH），当前量级可接受。
+
+## 十、板测第二轮：数码管诊断读数与"垂直翻转"失败回退（2026-10-07 第 7 轮）
+
+**本轮板测（用户实测，烧的是含 file_start_pulse 修复 + 诊断位的构建）**：
+- 画面：首图可自动显示，但**大量横向黄线（每条约 2-3 像素宽）**、且**画面上下颠倒**；按 KEY1/KEY2 **无切换效果**。
+- 数码管诊断读数：**"041"**，其中会随预加载**逐渐变大的是"已装载 bank 数"，最终为 4** → 说明**四 bank 预加载全部成功**；另一位显示 1（= 正在显示 PIC1）；按键计数位按 KEY1/KEY2 **会变化** → 说明**按键脉冲确实到达了控制逻辑**。
+
+**据此排除的原因**：
+- 预加载逻辑 ✓（4/4 完成）
+- 按键通路 ✓（计数变化）
+- 写/读数据格式 ✓（loader 写 `{8'h00, pixel_rgb}`，reader 取 `prefetch_data[23:0]`，同一约定，已静态核对）
+- CDC 的块划分 ✓（读源码确认：`media_sdram_write_cdc` 是"源侧每 128 字记一个块、目的侧每块读 128 字"的**纯字流**，逐字透传 `src_wr_addr`，不改变地址序）
+
+**垂直翻转尝试与失败**：为复现官方 `WRITE_V_FLIP(1)`，在 `media_frame_loader` 里把写地址改为 `bank_base + (IMAGE_WORDS-1 - pixels_written)`（整帧倒序写入）→ 实测**整屏全黑** ✗。对比：递增线性写入 → 有画面（仅上下颠倒）；递减 → 全黑。**结论：本工程的写路径（官方 SDRAM 控制器）对连续 `App_wr_en` 期间地址的单调性敏感**，整帧倒序不可用。**已回退**为线性递增写入（保留注释说明），门禁通过（Setup -399 ps / Hold +421 ps / 0 端点）。
+
+**下一步方案（行倒序、行内升序）**：仍由 loader 承担翻转，但**保持每个突发内部地址递增**：
+- 维护 `col_cnt`（0..639）与 `row_base`（从 `IMAGE_WORDS-640` 起，每行减 640）；
+- 写地址 = `bank_base + row_base + col_cnt`；
+- 突发长度限制为 `min(fifo_count, EFFECTIVE_BURST, 640-col_cnt)`，使**突发不跨越行边界**（避免连续 `App_wr_en` 期间出现地址回跳）。
+需先确认黄线问题的性质再实施（避免一次改两处、无法归因）。
+
+**保留的诊断位（本轮新增，保留）**：顶层数码管增加两位——第 4 位显示"已装载 bank 数"、第 3 位显示"按键事件累计"，用于在只有数码管可观测的条件下定位问题。
+
+## 十一、板测第三轮：单图判别测试定出两个独立问题，并按官方方案实施修复
+
+**单图判别测试（卡里只留 PIC1.BMP，无需重建）结果**：
+- **左右镜像消失、图形水平方向与原图一致**，仅剩**上下翻转** → 说明镜像来自写坏，翻转就是缺 `WRITE_V_FLIP`；
+- **背景噪点大幅减少、只剩零星散点** → 证实"读写并发无仲裁"是噪声来源；
+- **Logo 内部色块仍碎裂为横向断续短线** → 存在**与写入无关的第二个问题**（读侧/采样）。
+
+**对照官方实现得到的两条决定性证据**：
+1. `frame_fifo_read.v` 起读突发的条件是 `wrusedw < (FIFO_DEPTH - BURST_SIZE) && ~App_wr_busy`；`frame_fifo_write.v` 起写突发的条件是 `... && ~App_rd_busy` → **官方在读/写两条路径之间做了"起突发前等对方空闲"的互斥**，而我们的 loader/reader 都没有 ✗。官方对 `Sdr_init_ref_vld`/`Sdr_busy` 也**只当端口、从不使用**（与我们一致，故这不是差异）。
+2. `frame_read_write.v` 第 32 行注释明确 `Sdr_rd_en //read_data_valid` → 我们顶层把 `sdram_rd_valid` 映射到 `Sdr_rd_en` 是**正确**的 ✓；且官方写路径的 `WRITE_V_FLIP` 常量已取到，与"行倒序"方案完全一致。
+
+**本轮实施（已通过综合门禁：Setup -376 ps / 225 端点、Hold +421 ps / 0 端点）**：
+1. **垂直翻转**（`media_frame_loader.v`）：改为寄存器地址 + 官方同款规则
+   `VFLIP_FIRST_ADDR_OFFSET = IMAGE_WORDS - 640 = 306560`、`VFLIP_LINE_JUMP = 640*2-1 = 1279`，
+   起始写最后一行行首，行内 `+1` 递增，行末 `-LINE_JUMP` 跳回上一行 → **突发内地址始终递增**（避免上一版"整帧倒序"导致的全黑）。
+2. **读写互斥**：`media_frame_loader` 新增 `reader_active` 输入，`start_burst` 增加 `&& !reader_active`；`media_frame_reader` 新增 `writer_active` 输入，`start_burst` 增加 `&& !writer_active`。顶层分别接 `reader_busy` 与 `!cdc_dst_idle`。两边都只在"起突发前"等待，突发中不受影响，故不会死锁（与官方结构一致）。
+
+**待验证**：先单图看正确性（应无翻转、无碎裂），再四图看稳定性。
+
+----------------------------------------------------------------
+
+
+## 十二、2026-10-24 目录页缩略图 -> 展区徽标（方案 D）
+
+**背景**：96x72 截图缩略图放大 2.25 倍后是一团糊，评审第一反应是"没调好"。方案 D：
+不用缩略图，左侧预览框改画"展区徽标 + 文字"（文字早就有：展区名 / 时代 / 提示）。
+
+**改了什么**
+1. `rtl/directory_ui.v`
+   - 删掉 `thumb_data` / `thumb_raddr` 两个端口和整套 216x162 <- 96x72 的乘法缩放；
+   - 新增展区徽标：216x162 @ (39,20)，图源 108x81，2 倍最近邻放大；
+     地址 `addr = sel*8748 + by*108 + bx`（`by*108` 用 `by*128-by*16-by*4`，全移位加减）；
+   - 每像素 2 bit 材质码（paper/tint/accent/ink），ROM 由同文件内的 `zone_badge_rom` 提供；
+   - 显示侧只用「每区主色 + (A>>2)+192 派生 tint + 两个常量」，无乘法器；
+   - 上框加高到 y 14..188（原 176），边框内沿 18..184，徽标贴 20..182。
+2. `rtl/top_tf_hdmi_audio.v`：删掉 5x5 抽样 / 三点平均 / 3 个 18x18 乘法器 / `thumb_mem` 例化。
+3. 新增素材与工具：`rtl/zone_badge.hex`、`tools/make_zone_badges.py`（画图 + 降采样 + 自动描边 +
+   预览）、`tools/check_zone_badge_render.py`（Python 复刻 RTL 寻址，逐像素比对素材）。
+
+**门禁结果（TD 6.2.168116，完整 syn + phy + bitgen）**
+
+| 项 | 旧（525D5DB3） | 新（803DDEBA） | 变化 |
+|---|---|---|---|
+| mslices | 4242 | **4229** | -13 |
+| LUT | 15686 | **15575** | -111 |
+| REG | 6418 | 6420 | +2 |
+| BRAM9K | 52 | **54** | +2（删 11、徽标 ROM 加 13） |
+| DSP | 24 | **19** | -5 |
+| Setup | +1148 ps | **+988 ps** | -160 ps |
+| Hold | +26 ps | **+25 ps** | -1 ps |
+| FEPS | 0 | 0 | - |
+
+综合：15275 LUT / 6244 REG / 54 BRAM / 19 DSP，Setup +908 ps、Hold +421 ps。
+bit：`bitstream/HDMI2_HDMI14_Player_zone_badge.bit`（669,200 B，
+MD5 `803DDEBA69F55A2CD3A5E35D8AC7A299`）。
+
+**踩坑**：降采样若把"平手"判给浅色材质，1 px 墨线会整条消失（徽标变一坨色块），
+必须 `>=`（平手偏向更深材质）。手画描边在形体交叠处会互相穿插，
+改成"只画色块 + 程序统一钩一圈外轮廓"。
+
+**未上板验证**：本轮只做工具链验证（syn/phy/bitgen 全通过），板上效果待确认。
+
+
+### 十二补充、2026-10-24 板测反馈：边框要跟着展区变色 + 删掉底部横线
+
+板测（用户拍照）发现两件事：
+1. 徽标内容已经是琥珀色（唐三彩），但**边框看着不像黄色** —— 1 px 图源（2 px 显示）的彩色细线
+   在 640x480 上经显示器缩放 + 相机采样会被压成"深灰红"，观感上就不像展区色；
+2. 屏幕最下方有**两道看不懂的横线** —— 那是 `directory_ui.v` 里历史遗留的页脚条
+   `in_foot`（y 458..480，`C_FOOT #3A3163` 深紫 + `C_FOOTLN` 两条紫线），4 行列表根本用不到。
+
+**改动**
+1. 素材（`tools/make_zone_badges.py`）
+   - 外框图源 1 px -> **2 px**（显示 4 px），圆环 1.3 px -> 2 px，四角标 1 px -> 1.5 px；
+   - 底纹 `tint` 从 25% 主色改成 **50% 主色**（`(A>>1)+128`），斜纹间隔 6 -> 7、线宽 1.4 -> 1.1，避免太碎。
+2. `rtl/directory_ui.v`
+   - 删除 `in_foot` 整段与 `C_FOOT/C_FOOTLN`；底部恢复为页面底色；
+   - 新增 `z_acc_c / z_half_c(50%) / z_quart_c(25%)` 三条展区色派生（移位相加，无乘法）；
+   - **左侧整列跟着展区色**：上/下两框边框与分隔线 = 50% 主色；
+   - **右侧列表**：选中行底 = 25% 主色，行边框/行首圆点/滚动块 = 主色（未选中仍是页面蓝 C_LINE）；
+   - 徽标调色板改用 `z_acc_d1/d2` 延 2 拍（替代原来的 `b_sel_d1/d2`），tint 同步改成 50%。
+
+**门禁（完整 syn + phy + bitgen）**
+
+| 项 | v1（803DDEBA） | v2（3F3A4897） | 变化 |
+|---|---|---|---|
+| mslices | 4229 | **4211** | -18 |
+| LUT | 15575 | **15523** | -52 |
+| REG | 6420 | **6411** | -9 |
+| BRAM9K | 54 | 54 | 0 |
+| DSP | 19 | 19 | 0 |
+| Setup | +988 ps | **+990 ps** | +2 ps |
+| Hold | +25 ps | **+25 ps** | 0 |
+| FEPS | 0 | 0 | - |
+
+综合：15198 LUT / 6261 REG / 54 BRAM / 19 DSP。
+bit：`bitstream/HDMI2_HDMI14_Player_zone_badge.bit`（669,200 B，
+MD5 `3F3A4897B629D279AB3079D71197A07C`）。
+
+**注意**：左侧整列/选中行换色是"顺带"做的整列主题化——如果只想让徽标边框变色、
+不想让面板和列表也跟着变，把 `base_col` 里那几处 `z_half_c / z_quart_c / z_acc_c`
+改回 `C_LINE / C_SEL / C_ACCENT` 即可（1 分钟改 + 一轮构建）。
+
+**未上板验证**：v2 仅通过工具链门禁，屏幕效果待确认。
+
+
+### 十二补充 v3、2026-10-24 板测反馈二：右侧也换色 + 滚动条 4 等分
+
+用户板测（越王勾践剑）指出两点：
+1. 右侧列表那圈**浅蓝的框**没跟着变 —— 现在整页（左列两框 + 右侧大框 + 4 行行框）都由展区色派生；
+2. 右侧**滚动条**的红块到不了底、轨道长度也不对齐 —— 原来轨道 12..446（434 px）、块高 100，
+   第 4 行只能画到 436，差 10 px；现在轨道 = 4×108 = 432（12..444），块高 108，
+   并在 y = 120/228/336 各开 2 px 缝，把整条**4 等分**；选中段实心，其余用 25% 主色。
+
+**改动（全部在 `rtl/directory_ui.v`）**
+- 右侧大框边框 `C_LINE` -> `z_half_c`；行框 `C_LINE` -> `z_quart_c`；
+- 滚动条重写：`z_quart_c` 轨道 + `z_acc_c` 当前段 + 3 道 `C_PANEL` 缝；
+- 删掉已无用的 `C_LINE / C_SEL / C_ACCENT` 常量。
+
+**门禁（完整 syn + phy + bitgen）**
+
+| 项 | v2（3F3A4897） | v3（ED313FFE） | 变化 |
+|---|---|---|---|
+| mslices | 4211 | **4282** | +71 |
+| LUT | 15523 | **15825** | +302 |
+| REG | 6411 | **6401** | -10 |
+| BRAM9K | 54 | 54 | 0 |
+| DSP | 19 | 19 | 0 |
+| Setup | +990 ps | **+1334 ps** | +344 ps |
+| Hold | +25 ps | **+21 ps** | -4 ps |
+| FEPS | 0 | 0 | - |
+
+综合：15455 LUT / 6261 REG / 54 BRAM / 19 DSP。
+bit：`bitstream/HDMI2_HDMI14_Player_zone_badge.bit`（669,200 B，
+MD5 `ED313FFE43D44882B8E5277B94C5A057`）。
+
+**为什么 LUT 涨了 302**：这些框原来选的是**常量**（`C_LINE`），综合器能把常量多路选择
+压成共享项；改成信号（`z_half_c / z_quart_c`）之后每个落点都要一整条 24 bit 多路选择。
+换来的是整页主题一致，mslices 仍比方案 D 之前（4242）低、比上限 4900 还余 618。
+
+**未上板验证**：v3 仅通过工具链门禁，屏幕效果待确认。
+
+
+### 十三、2026-10-24 切图过渡重做 + 修掉"进区放两遍过渡"
+
+**板测反馈**：切换图片时是"黑幕从左往右退开、约 0.33 s"，硬边纯黑，观感廉价；
+而且每次从目录进一个展区，会自动放两遍这个动画。
+
+**两遍过渡的根因（两个叠加）**
+1. `menu_ctrl` 在目录里上下移动时会发 `zone_preview`，`sd_card_bmp` 把它也当成"要装图"，
+   于是每按一次 W/S 就在后台装一张；等 Enter（`zone_apply`）又装一遍。
+   如果预览那次装载还没装完，目录一关就会先看到"预览装载"的过渡，再看到"Enter 装载"的过渡。
+2. `zone_apply` 是 video_clk(25 MHz) 域 1 拍脉冲，直接接进 sd_card_clk(50 MHz) 域的
+   `sd_card_bmp`，采样次数不确定，同一请求可能被记两次。
+
+**修法**
+- `sd_card_bmp.v`：`if (zone_apply || zone_preview)` -> `if (zone_apply)`，目录里不再后台装图；
+- `top_tf_hdmi_audio.v`：`zone_apply` 先转 toggle、跨到 sd 域再取边沿成单拍脉冲
+  （`zone_apply_sd`），`zone_preview` 直接接 0；
+- 过渡触发改成"索引稳定 15 拍后才算换图"（`idx_stable`），多比特跨域毛刺不会再触发两次。
+
+**过渡动画（新）**
+- 不再是黑幕，而是"暗到页面底色 `#EEF5FC` -> 换 buffer -> 亮出新图"，
+  11 帧 + 11 帧 ≈ 0.37 s，alpha 5 bit、每帧 3 级；
+- 关键前提：`frame_fifo_read` 的读地址是**每帧起点 S_ACK 才锁存**的，
+  所以换 buffer 早/晚都不会撕裂，可以"等暗到全底色再换"；
+- 实现：显示索引 `disp_show_idx` 比 `disp_buf_idx` 慢半个过渡；
+  混合公式 `out = C + ((pix - C) * a) >> 5`（带饱和），全亮时走旁路不加延迟；
+- 代价：3 个 10x6 乘法器（综合成 LUT，未占 DSP）+ 状态机；同时删掉旧幕帘逻辑。
+
+**门禁（完整 syn + phy + bitgen）**
+
+| 项 | v3（ED313FFE） | v4（6B3ACC68） | 变化 |
+|---|---|---|---|
+| mslices | 4282 | **4177** | -105 |
+| LUT | 15825 | **15431** | -394 |
+| REG | 6401 | **6256** | -145 |
+| BRAM9K | 54 | 54 | 0 |
+| DSP | 19 | 19 | 0 |
+| Setup | +1334 ps | **+1146 ps** | -188 ps |
+| Hold | +21 ps | **+36 ps** | +15 ps |
+| FEPS | 0 | 0 | - |
+
+综合：15169 LUT / 6119 REG / 54 BRAM / 19 DSP。
+bit：`bitstream/HDMI2_HDMI14_Player_zone_badge.bit`（669,200 B，
+MD5 `6B3ACC6857A7A081251427A26C88F453`）。
+过渡预览：`tools/preview_transition.py` -> `tools/_preview/transition_strip.png`。
+
+**未上板验证**：v4 仅通过工具链门禁，屏幕效果待确认。
+
+
+### 十四、2026-10-24 修 v4 的三个板测问题
+
+板测反馈：①第一页错乱；②不论进哪个展区都还是"曾侯乙编钟"；③没有过渡动画。
+
+**③ 过渡不可见（我的 bug）**
+`fade_a` 原来每个 `video_clk` 拍就 ±3，22 拍 = 0.88 us，屏幕上等于直接换图。
+改成按帧推进：新增 `fade_frame_tick = vs & ~info_vs_d`，每帧 ±3 -> 11+11 帧 ≈ 0.37 s。
+
+**② 进区不进对应展区（真凶是隐式网络）**
+`zone_apply_sd` 在 `sd_card_bmp` 例化处被引用，却到 300 行之后才用 `wire zone_apply_sd = ...` 声明，
+综合器按 Verilog 的隐式网络规则把例化处那个当成**另一根没驱动的线**（恒 0），
+于是 `zone_pending` 永远置不起来 -> 分区装载逻辑整块被当死代码裁掉
+（v4 综合只有 15169 LUT；v5 把它接活后是 15790 LUT，差的就是这套分区选择逻辑）。
+修法：`zone_apply/zone_preview/zone_apply_sd` 全部提到文件顶部声明，
+跨域逻辑（toggle + 2FF + 异或）也挪到 `sd_card_bmp` 例化之前，改用 `assign` 驱动。
+顺带保留 v4 的 `zone_apply` 单拍化（25 MHz 窄脉冲不能直接进 50 MHz 域）。
+
+**① 第一页错乱**
+照片里那页是"整帧每行被转了 160 像素"（照片居中、左右文字各自被裁掉并从另一侧绕回来），
+这种"逐行旋转"只可能来自写进 SDRAM 的内容本身，读通路/换缓存只会造成斜切，不会逐行旋转。
+先把最可疑的"开机第一帧"处理掉：开机那次写入时显示通路还没跑起来，和前几次板测
+"第一页才错"的现象吻合 —— 现在 `sd_card_bmp` 里加 `boot_loaded`：开机第一张写完**先不提交**，
+原样再装第二遍，第二次才 `display_valid`。开机时屏幕盖着主菜单，多花的时间看不见。
+
+**门禁（完整 syn + phy + bitgen）**
+
+| 项 | v4（6B3ACC68） | v5（08E91B30） | 变化 |
+|---|---|---|---|
+| mslices | 4177 | **4285** | +108 |
+| LUT | 15431 | **16121** | +690 |
+| REG | 6256 | **6454** | +198 |
+| BRAM9K | 54 | 54 | 0 |
+| DSP | 19 | **21** | +2 |
+| Setup | +1146 ps | **+846 ps** | -300 ps |
+| Hold | +36 ps | **+33 ps** | -3 ps |
+| FEPS | 0 | 0 | - |
+
+> 资源变多不是新加功能，而是 v4 里**分区装载逻辑被裁掉了**、v5 把它接活：
+> 现在才真正包含"按展区挑扇区"的整套逻辑（sec_mem 查表 + 计数 + 比较）。
+
+综合：15790 LUT / 6274 REG / 54 BRAM / 21 DSP。
+bit：`bitstream/HDMI2_HDMI14_Player_zone_badge.bit`（669,200 B，
+MD5 `08E91B30D463D0AE63956979065CEB1E`）。
+
+**未上板验证**：如果开机首帧重装后第一页仍然逐行错位，那就不是装载时序问题，
+需要查 A01.BMP 本身（用 PC 打开 `SD卡图片\IMAGE00.BMP` 对比）。
+
+
+### 十五、2026-10-24 撤销 v5 的"开机双装"，加装载看门狗
+
+板测：v5 烧上去后进任何展区都是**全黑**。
+
+根因：v5 为绕过"第一页错乱"加了"开机第一张写完不提交、再装一遍"，
+但第二次的 `load_start_pulse` **没有等 `bmp_ready`**，脉冲正好落在 bmp_read 忙的时候被吞掉，
+而我已经把 `load_busy` 置 1 —— 于是 `load_busy` 永远为 1：不提交（`display_valid` 一直 0 = 全黑）、
+也不响应任何切图请求。
+
+处理：
+1. **整段撤销**开机双装，回到"一次写完就提交"；
+2. 新增 **装载看门狗** `load_wdog`（27 bit @50 MHz ≈ 2.7 s）：任何原因让一次装载卡住，
+   超时后强放 `load_busy`、保留上一帧，按键继续可用 —— 这次这种"卡死即全黑"以后不会再出现；
+3. v4 修正的过渡按帧推进、v5 修好的 `zone_apply` 跨域都保留。
+
+> 关于"第一页错乱"：那页是"每行被转 160 px"。v5 之前进区不装载，屏幕上看到的其实是
+> **开机那一帧**；现在四区切换正常了，进入展区会**重新装载**该区第一张（正常的"后装"路径），
+> 这一帧不会再有开机时序问题。若 B/C/D 区第一页仍然逐行错位，再回头查写入通路/卡内文件。
+
+**门禁（完整 syn + phy + bitgen）**
+
+| 项 | v5（08E91B30） | v6（41832F8D） | 变化 |
+|---|---|---|---|
+| mslices | 4285 | **4325** | +40 |
+| LUT | 16121 | **16149** | +28 |
+| REG | 6454 | **6444** | -10 |
+| BRAM9K | 54 | 54 | 0 |
+| DSP | 21 | **21** | 0 |
+| Setup | +846 ps | **+763 ps** | -83 ps |
+| Hold | +33 ps | **+21 ps** | -12 ps |
+| FEPS | 0 | 0 | - |
+
+综合：15838 LUT / 6300 REG / 54 BRAM / 21 DSP。
+bit：`bitstream/HDMI2_HDMI14_Player_zone_badge.bit`（669,200 B，
+MD5 `41832F8DB6F6F2AE139ECBB8F8093E5B`）。
+
+
+### 十六、2026-10-24 删掉装载看门狗（v6 全黑的真凶）
+
+v6 板测依旧全黑。v6 = v4 图像通路 + 按帧推进的淡入淡出 + `zone_apply` 跨域 + 2.7 s 装载看门狗；
+v5 里那个"开机双装"已经撤了，所以只剩看门狗这一个可疑项。
+
+结论：**2.7 s 太短**。板测里一次整帧装载（921 KB，含 FAT 定位与 SDRAM 写入）要 2~4 s
+（两张截图相隔 5 s，中间只按了一次"下一张"，正好对上）。看门狗在装载途中把 `load_busy` 清掉，
+于是永远等不到 `write_finish` 的提交 -> `display_valid` 一直是 0 -> 黑屏（连 OSD 也被
+`vout_data = display_valid ? osd : 0` 一起关掉，所以屏上什么都没有）。
+
+处理：整段删除看门狗，回到 v4 的"写完即提交"。保留：
+- `zone_apply` 跨域修好（四区各进各的）；
+- 过渡按帧推进（0.37 s 淡出淡入）。
+
+**门禁（完整 syn + phy + bitgen）**
+
+| 项 | v6（41832F8D） | v7（28D79AF3） | 变化 |
+|---|---|---|---|
+| mslices | 4325 | **4358** | +33 |
+| LUT | 16149 | **16143** | -6 |
+| REG | 6444 | **6420** | -24 |
+| BRAM9K | 54 | 54 | 0 |
+| DSP | 21 | **21** | 0 |
+| Setup | +763 ps | **+1042 ps** | +279 ps |
+| Hold | +21 ps | **+25 ps** | +4 ps |
+| FEPS | 0 | 0 | - |
+
+综合：15794 LUT / 6273 REG / 54 BRAM / 21 DSP。
+bit：`bitstream/HDMI2_HDMI14_Player_zone_badge.bit`（669,200 B，
+MD5 `28D79AF3F1FDC2A77B40AABE15C33B87`）。
+
+**若仍全黑，请先看板上的 7 段数码管**（`state_code`）：
+`0` = 一张图都没装载好（SD 侧问题）；`1~4` = 正在显示第 n 张（说明图像通路正常，问题在显示/OPS 层）；
+`9~E` = 具体的 BMP/FAT 错误码（9 头非法、A 超时、B 长度不足、C 找不到文件、D 卷不认识、E 扇区读失败）。
+
+
+### 十七、2026-10-24 UI 收尾：数码管下电 / 设置背景 / 标题居中
+
+v7 板测通过（四区各自进图、淡入淡出可见、第一页正常）。本轮四项：
+
+1. **数码管下电**（省资源）：删掉 `seg_decoder` + `seg_scan` 两个实例，`seg_sel = 6'b0`、
+   `seg_data = 8'hFF`（原工程"全灭"就是段全 1）；`sd_card_bmp.state_code` 不再接出，
+   综合时连带把错误码/序号那套寄存器裁掉。省约 60~100 LUT + 20 个寄存器。
+2. **设置面板背景不再变黑**：`settings_panel.v` 面板外原来是 `C_OUT_BG = #0E1116` 死黑，
+   现在改成"底层画面亮度减半"（`rgb_in >> 1`），设置面板像浮在当前页面上。
+   配套：`main_menu.v` 新增 `blank` 输入，设置面板打开时菜单整层让开 ——
+   这样既不会露出共用字库的字模错位，也不至于把背景涂黑（背景就是图片页）。
+3. **主菜单标题居中**：`TITLE_X` 56 -> **144**（11 字 x 32 = 352 宽，(640-352)/2）。
+4. **图片页顶栏加居中标题**：`info_bands` 顶栏由"手动/轮播中 + 时间"扩展成
+   "手动 + 居中的「博物馆智能展品讲解系统」 + 时间"；字模复用主字库
+   0x8D/8E/8F/F8/F9/E0/ED/FA/EB/90/91（与主菜单标题同一批槽位），
+   位置 x=232..408（(640-176)/2，11 字 x 16）。
+   预览：`tools/preview_topbar.py` -> `tools/_preview/topbar_new.png`。
+
+**门禁（完整 syn + phy + bitgen）**
+
+| 项 | v7（28D79AF3） | v8（23E53035） | 变化 |
+|---|---|---|---|
+| mslices | 4358 | **4377** | +19 |
+| LUT | 16143 | **16129** | -14 |
+| REG | 6420 | **6412** | -8 |
+| BRAM9K | 54 | 54 | 0 |
+| DSP | 21 | **21** | 0 |
+| Setup | +1042 ps | **+1109 ps** | +67 ps |
+| Hold | +25 ps | **+25 ps** | 0 |
+| FEPS | 0 | 0 | - |
+
+> 数码管那套省了约 60~100 LUT，但顶栏标题又加了差不多同量，所以净变化很小。
+
+综合：15830 LUT / 6250 REG / 54 BRAM / 21 DSP。
+bit：`bitstream/HDMI2_HDMI14_Player_zone_badge.bit`（669,200 B，
+MD5 `23E530356BCE23A9147AF5648A8AE4F0`）。
+
+
+### 十八、2026-10-24 主菜单图标放大拉散 / 顶栏状态字改色
+
+1. **右侧 4 个展品图标**（`main_menu.v`）
+   - 显示尺寸 44x44 -> **66x66（1.5 倍最近邻）**：`src = dst*2/3 ≈ (dst*342)>>9`，
+     两个 9x12 乘法器（综合成 2 个 DSP），**不占 BRAM**（还是那一片 8192x1 精灵表）；
+   - 行距 64 -> **96**，`ICON_Y0` 128 -> **56**，垂直范围 56..410，正好落在装饰环里；
+   - 奇数行的右错位 18 -> **12**（图标变大后 18 太跳）；
+   - 行号不再能用 `icy[7:6]`（96 不是 2 的幂），改成 3 个比较器 + `idx*96 = idx*64+idx*32` 移位。
+2. **顶栏「手动 / 轮播中」改正文色**（`subtitle_overlay.v`）：原来用绿色 `C_STATUS_ON`，
+   和周围的深蓝字不搭；现在 `stat_rgb = C_TEXT`（#25445C），与标题、时间同色。
+3. 预览：`tools/preview_menu_icons.py` -> `tools/_preview/menu_icons_new.png`
+   （用真实精灵表按同一 1.5 倍采样画出来的）。
+
+**门禁（完整 syn + phy + bitgen）**
+
+| 项 | v8（23E53035） | v9（0A0B7587） | 变化 |
+|---|---|---|---|
+| mslices | 4377 | **4338** | -39 |
+| LUT | 16129 | **16186** | +57 |
+| REG | 6412 | **6413** | +1 |
+| BRAM9K | 54 | 54 | 0 |
+| DSP | 21 | **23** | +2（1.5 倍采样的两个乘法器） |
+| Setup | +1109 ps | **+1241 ps** | +132 ps |
+| Hold | +25 ps | **+25 ps** | 0 |
+| FEPS | 0 | 0 | - |
+
+综合：15853 LUT / 6249 REG / 54 BRAM / 23 DSP。
+bit：`bitstream/HDMI2_HDMI14_Player_zone_badge.bit`（669,200 B，
+MD5 `0A0B758794A06A480F54EF558EE0AFB5`）。
+
+
+### 十九、2026-10-24 修 v9 的"图标全没了"
+
+板测：烧了 v9 之后主菜单右侧四个图标整个不见了。
+
+根因是 Verilog 的**乘法位宽**：1.5 倍采样写成
+
+```verilog
+wire [7:0] ic_sx_r = (icx * 9'd342) >> 9;      // ✗
+```
+
+`*` 在表达式里的结果宽度按操作数最大宽度算（这里 max(12,9) = **12 bit**），
+`65 * 342 = 22230` 被截成 `1742`，`>>9` 之后只落到 0..7 —— 也就是永远在采样
+图标左上角 8x8 的**空白区**，于是"四个图标全没了"（肉眼就是一片干净背景）。
+
+改法：把操作数先显式扩到 18 bit，用 18 bit 的积再取高 9 位：
+
+```verilog
+wire [17:0] ic_sx_m = {6'b0, icx}     * 18'd342;
+wire [9:0]  ic_sx_r = ic_sx_m[17:9];            // 0..43 ✓
+```
+
+用 Python 按两种语义各算一遍（4 个图标 x 66x66 区域里实际点亮的像素数）：
+旧写法 **100** 个（几乎全空），新写法 **2680** 个（正常图标）。板上现象与这个数字完全对得上。
+
+**门禁（完整 syn + phy + bitgen）**
+
+| 项 | v9（0A0B7587） | v10（838C9CB8） | 变化 |
+|---|---|---|---|
+| mslices | 4338 | **4426** | +88 |
+| LUT | 16186 | **16371** | +185 |
+| REG | 6413 | **6416** | +3 |
+| BRAM9K | 54 | 54 | 0 |
+| DSP | 23 | **23** | 0 |
+| Setup | +1241 ps | **+1253 ps** | +12 ps |
+| Hold | +25 ps | **+23 ps** | -2 ps |
+| FEPS | 0 | 0 | - |
+
+> 资源上涨是因为 v9 那两个乘法器其实在做 12 bit 的无用运算（结果永远落在空白区），
+> 现在是真正的 18 bit x 18 bit 采样运算。
+
+综合：16063 LUT / 6250 REG / 54 BRAM / 23 DSP。
+bit：`bitstream/HDMI2_HDMI14_Player_zone_badge.bit`（669,200 B，
+MD5 `838C9CB8A4EC7B3A98AC9BB01D0AC21E`）。
+
+
+### 二十、2026-10-25 分区 BGM（MENU / A / B / C / D）
+
+需求：主菜单放 MENU.WAV，A~D 展区各放 A/B/C/D.WAV，单曲循环，换区随切。
+
+**做法（不复制查找器、不加 BRAM）**
+1. `fat32_find_file.v`：`TARGET_NAME` 从参数改成**运行期输入** `target_name`（MATCH_MODE=1 时比对 11 字节
+   8.3 全名），这样同一条查找通路可以按需要换名字重查；
+2. `top_tf_hdmi_audio.v` 新增 BGM 选择器：
+   - 想要哪一段：`menu_active || dir_active` -> 0(MENU)，否则 `zone_idx+1` -> 1..4(A~D)；
+     3 bit 目标值 2FF 同步到 sd 域（跨域只搬这一个慢变量）；
+   - 一个 2 态 FSM：目标 != 当前 -> 等 `!img_sd_busy` -> 拉 `start` 查名字 -> 查到就
+     `lba = data_start + (first_cluster-2)*spc`、`secs = ceil(size/512)` 写进寄存器并给播放器
+     一个 `restart` 脉冲；查不到就记下当前选择、不再空转；
+   - 播放器 `start_lba/total_sectors` 改成这两个寄存器，`play_enable = (lba != 0)`；
+   - **循环**：直接用播放器自己的 `stream_end`（读完整段 + 排空）驱动 `restart`，
+     删掉原来"按文件大小估循环点"的 32 bit 比较器和两组影子寄存器（所以 mslices 反而降了）；
+   - SD 扇区请求按 FSM 状态二选一：查名期间给查找器，平时给播放器。
+3. `zone_idx` 只在展区图装载完成时更新，所以换区后音乐在该区第一张图出来时才切，不会抢 SD。
+
+**门禁（完整 syn + phy + bitgen）**
+
+| 项 | v10（838C9CB8） | v11（DB6BFF84） | 变化 |
+|---|---|---|---|
+| mslices | 4426 | **4371** | -55 |
+| LUT | 16371 | **16269** | -102 |
+| REG | 6416 | **6412** | -4 |
+| BRAM9K | 54 | 54 | 0 |
+| DSP | 23 | **23** | 0 |
+| Setup | +1253 ps | **+222 ps** | -1031 ps |
+| Hold | +23 ps | **+25 ps** | +2 ps |
+| FEPS | 0 | 0 | - |
+
+> Setup 只剩 +222 ps，但**仍然 0 违例**；报告的瓶颈在 `ext_mem_clk`（125 MHz 的 SDRAM 域，
+> Fmax 128.6 MHz），不是本次新增的 BGM 逻辑（`sd_card_clk` 域 SWNS 2.46 ns）。
+
+**卡上的文件要求**：根目录放 `MENU.WAV / A.WAV / B.WAV / C.WAV / D.WAV`，
+格式为**裸 16 bit 小端 PCM、48 kHz 单声道**（现有文件就是这种无 RIFF 头的格式，和播放器一致）。
+
+
+### 二十一、2026-10-25 修 v11 的分区 BGM（曲目从不切换）
+
+板测：音乐一直是同一首（还是以前那首），换展区也不变。
+
+**两个 bug**
+1. `fat32_find_file.v` 里 `ent_name` **从来没存过 8.3 名字的第一个字符**：
+   ```
+   if (byte_index == 0) ent_name <= 88'd0;      // 只清了标志，首字母丢了
+   else if (< 11)       ent_name <= {ent_name[79:0], uc(sd_byte)};
+   ```
+   以前只用 `ent_name[23:0]` 比扩展名 "WAV"，所以没人发现；这次要比 11 字节全名，
+   实际只能比到 `"?       WAV"`，A/B/C/D/M 全都不匹配 -> 永远查不到 -> 曲目从不切换。
+   修法：第 0 字节也收进 `ent_name`（`ent_name <= {80'd0, uc(sd_byte)}`），
+   扩展名比较仍然落在低 24 位，MATCH_MODE=0 不受影响。
+   用 Python 复刻组装过程逐字节验证：MENU/A/B/C/D 五个常量全部 MATCH，且互不相等。
+2. `aud_want_vid` 用了 `zone_idx[1:0]` —— 那是"本区第几张图"（顶栏 第 n 页），
+   不是展区号。改用 `zone_sel`（目录里选中的展区，进区后保持不变）。
+   否则会变成"按页换曲"。
+
+**门禁（完整 syn + phy + bitgen）**
+
+| 项 | v11（DB6BFF84） | v12（14750A79） | 变化 |
+|---|---|---|---|
+| mslices | 4371 | **4376** | +5 |
+| LUT | 16269 | **16352** | +83 |
+| REG | 6412 | **6443** | +31 |
+| BRAM9K | 54 | 54 | 0 |
+| DSP | 23 | **23** | 0 |
+| Setup | +222 ps | **+319 ps** | +97 ps |
+| Hold | +25 ps | **+25 ps** | 0 |
+| FEPS | 0 | 0 | - |
+
+综合：15958 LUT / 6270 REG / 54 BRAM / 23 DSP。
+bit：`bitstream/HDMI2_HDMI14_Player_zone_badge.bit`（669,200 B，
+MD5 `14750A79E5CB8BB403AF91737402A4BC`）。
+
+**卡上要求**：根目录放 `MENU.WAV / A.WAV / B.WAV / C.WAV / D.WAV`（裸 16 bit LE PCM、48 kHz 单声道）。
+现在**只按这 5 个名字**放音，根目录里其它 .WAV（比如以前那首）不会被选中。
+
+
+### 二十三、2026-10-25 音频质量：滋滋声 / 上电第一首不对
+
+板测：音乐能按展区切换了，但①上电后第一首仍是老音乐；②全程叠着一层"滋滋"声（PC 上放同一文件干净）。
+
+**① 上电那一首**
+上电时 `wav_active_vid = 0`（还没找到 WAV），音频源会落到 `I2S_receiver`/内部测试音那条路上；
+板的这条通路就是 `hdmi_audio_tone_i2s_64fs` 的连续测试音 —— 听起来就是"一直是同一种声音"。
+现在改成：**只要已经找到过 WAV，就绝对不回落到测试音**（这一瞬间没数据就送静音），
+所以上电后先是静音，等 `MENU.WAV` 查到（约 3~4 s，跟首图装载同时结束）再开始放。
+
+**② 滋滋声（两个来源都堵掉）**
+1. 同上：播放中如果 `wav_stream_active` 有一瞬掉下来（缓冲边界、曲末、换曲），
+   音频源会瞬间切到测试音 —— 每个采样都掺一点 "嗡"，听感就是持续的滋滋声。
+   `audio_left/right_src` / `audio_valid_src` 现在按"`wav_find_found` 就不再回落到 I2S"来选；
+2. `wav_stream_player` 的读侧原来要求 `level_rd >= 256` 才放样本，低于 256 就吐静音
+   （预填充的考虑，但稳态下缓冲只要瞬间掉到 255 以下就"缺一块"），
+   现在改成 **`level_rd != 0` 就放**，真的空了才静音 —— 消除了周期性缺口。
+
+**门禁（完整 syn + phy + bitgen）**
+
+| 项 | v13（E3AB9AEC） | v14（5C67733E） | 变化 |
+|---|---|---|---|
+| mslices | 4411 | **4381** | -30 |
+| LUT | 16289 | **16348** | +59 |
+| REG | 6439 | **6456** | +17 |
+| BRAM9K | 54 | 54 | 0 |
+| DSP | 23 | **23** | 0 |
+| Setup | +358 ps | **+797 ps** | +439 ps |
+| Hold | +26 ps | **+21 ps** | -5 ps |
+| FEPS | 0 | 0 | - |
+
+综合：15993 LUT / 6292 REG / 54 BRAM / 23 DSP。
+bit：`bitstream/HDMI2_HDMI14_Player_zone_badge.bit`（669,200 B，
+MD5 `5C67733E4D29095BE3CA6849A4D9AA0C`）。
+
+**若滋滋声仍在**，下一步排查方向（按可能性）：
+1. 源文件采样率：如果卡上是 44.1 kHz 却按 48 kHz 播，音调会偏高 8.8%（不是滋滋，但能听出来）；
+2. SD 供数跟不上（缓冲 1024 样本 = 21 ms），可以把 `ADDR_WIDTH` 从 10 加到 11（+1 KB LUTRAM）;
+3. HDMI 音频包/ACR 与源端时钟的微小偏差（TV 侧重采样）。
+
+
+### 二十四、2026-10-25 上电/进区"黑屏等几秒"
+
+现象：刚上电点进展区，先黑屏几秒（首图从 SD 卡读到 SDRAM 的 921 KB 大约要 2~3 s），
+等首图好了才开始放音乐。
+
+**根因**：`assign vout_data = (display_valid || menu_active || dir_active) ? vout_data_osd : 24'd0;`
+—— 没有图、也不在菜单/目录页时，**整层**（连顶栏时间、字幕、底栏）都被置黑。
+音乐那边也是等 `display_valid` 才开始查名，所以两个都卡在同一件事上。
+
+**改法**
+1. 没图时底层垫**页面底色** [`img_under = display_valid ? vout_data_wave : C_FADE`]，
+   输出不再整层关黑 —— 点进展区看到的是"淡蓝页面 + 顶栏时间 + 字幕"，等首图到了再淡入；
+2. BGM 查找不再等 `display_valid`：加一个 ~0.5 s 的 `aud_boot_ok`，时间到就开始查 `MENU.WAV`，
+   卡没就绪的话由原来的 0.33 s 重试兜住。
+
+**门禁（完整 syn + phy + bitgen）**
+
+| 项 | v14（5C67733E） | v15（55764C46） | 变化 |
+|---|---|---|---|
+| mslices | 4381 | **4383** | +2 |
+| LUT | 16348 | **16415** | +67 |
+| REG | 6456 | **6470** | +14 |
+| BRAM9K | 54 | 54 | 0 |
+| DSP | 23 | **23** | 0 |
+| Setup | +797 ps | **+585 ps** | -212 ps |
+| Hold | +21 ps | **+34 ps** | +13 ps |
+| FEPS | 0 | 0 | - |
+
+综合：16042 LUT / 6317 REG / 54 BRAM / 23 DSP。
+bit：`bitstream/HDMI2_HDMI14_Player_zone_badge.bit`（669,200 B，
+MD5 `55764C467C4A9E29CC973BAE32C5B27D`）。
+
+**关于"烧到板子里（断电不丢失）能不能解决"**：不能。bit 固化只影响设计本身怎么加载（几百毫秒），
+黑屏那 2~3 s 是 **TF 卡读 921 KB BMP 进 SDRAM** 的时间，每次上电都要走一遍，与烧写方式无关。
+
+
+### 二十五、2026-10-25 固化到 FLASH 后"一张图都没有（1 / 0）"、且上电先放一段老音乐
+
+板测（固化启动）：整屏只有顶栏/底栏，左下角 `1 / 0`，等很久也不出图；功放里先响一段"老音乐"。
+
+**① `1 / 0` = 扫描一张 BMP 都没找到，而且没有重试**
+`sd_card_bmp` 只在 `!scan_kicked && bmp_ready` 时发**一次** `scan_start_pulse`（`scan_kicked` 之后一直为 1）。
+固化启动时卡的初始化/首次读偶尔会被打断（CF 配置 FLASH 与 SD 常共用 SPI 引脚，配置期总线活动会惊到卡），
+这次扫描就"扫完了、0 张"，之后再也不会重扫 —— 于是 `img_found_count=0`、`display_valid` 永远 0、整屏没图。
+修法：扫描结束若 `img_found_count == 0`，每 ~2 s 自动重扫一次（`rescan_cnt >= 99_999_999`，50 MHz）。
+
+**② 上电那段"老音乐"其实是内部测试音**
+`audio_left_src` 原来是三选一：WAV / I2S 接收 / 内部测试音。一张 WAV 都没找到时落到
+`hdmi_audio_tone_i2s_64fs` 的连续测试音 —— 每次上电都一模一样，听感就像"又在放老曲子"。
+现在音频源只认 WAV：`audio_left/right_src = wav_active_vid ? 采样 : 0`，`audio_valid` 恒 1。
+副作用：I2S 接收 + 测试音那套逻辑被综合裁掉，REG -364、DSP -3。
+
+**③ 顺手回退 v15 的"音乐不等首图"**
+v15 让 BGM 在 0.5 s 就开始查名并持续播，结果**播放器把 SD 总线占住**（WAV 在仲裁里优先于图片），
+扫描/装载被饿死 —— 这也是"等很久没图"的加重因素。现在恢复成"等首图（`display_valid`）"，
+另加 5.4 s 兜底（卡里真没图时音乐照样能起来）。
+
+**门禁（完整 syn + phy + bitgen）**
+
+| 项 | v15（55764C46） | v16（A2A1A3C5） | 变化 |
+|---|---|---|---|
+| mslices | 4383 | **4369** | -14 |
+| LUT | 16415 | **16401** | -14 |
+| REG | 6470 | **6106** | -364 |
+| BRAM9K | 54 | 54 | 0 |
+| DSP | 23 | **20** | -3 |
+| Setup | +585 ps | **+554 ps** | -31 ps |
+| Hold | +34 ps | **+27 ps** | -7 ps |
+| FEPS | 0 | 0 | - |
+
+综合：16042 LUT / 5956 REG / 54 BRAM / 20 DSP。
+bit：`bitstream/HDMI2_HDMI14_Player_zone_badge.bit`（669,200 B，
+MD5 `A2A1A3C5446F6782554B073DE80DE86A`）。
+
+**关于"固化到 FLASH 能不能解决/有没有影响"**：固化本身既不会让 SD 变快也不会变慢；
+但固化启动时配置 FLASH 的总线活动可能干扰 SD 卡的初始状态，所以这次加了"扫不到就重扫"的兜底。
+
+
+### 二十六、2026-10-25 固化启动后 SD 完全没应答（1 / 0 且无音乐）
+
+现象：固化到 SPI FLASH 后，屏上只有一个 `1 / 0`，等多久都不出图；音乐也完全没了
+（v16 把测试音去掉后，"老音乐"没了 = 确实一张 WAV 都没读到）。
+
+**代码层面的漏洞**：整条 SD 链**只初始化一次**，没有任何超时/重试：
+- `sd_card_sec_read_write` 的 `S_CMD0/S_CMD8/S_CMD55/S_CMD41` 只在"收到应答"时前进，
+  卡不应答就一直重发同一条命令，**永远不会自己复位**；
+- `sd_card_bmp` 只在 `bmp_ready` 第一次为 1 时发一次 `scan_start_pulse`；
+- 固化启动时配置 FLASH 与 SD 常共用 SPI 引脚，配置期的总线活动会让 SD 卡停在未定义状态，
+  于是"初始化卡死 → 不扫描 → 没有 `display_valid` → 没有图，也没有 WAV"。
+
+**v17 改动**
+1. **SD 初始化看门狗**：`sd_init_done` 1.3 s 内不来，就产生一个 `sd_retry` 软复位脉冲，
+   同时复位 `sd_card_top`、`bmp_read`、`sd_sector_adapter`、`fat32_zone_scan`、`wav_x_active`，
+   并清 `scan_kicked` / `rescan_cnt` / `zscan_started` —— 复位后自动重新初始化和重新扫描；
+   每 1.3 s 重试一次，直到卡应答为止。
+2. **音频路径跟着一起复位**：`sd_aud_rst_n = sdcard_rst_n & ~sd_retry`，
+   给 BGM 的查找器和选择 FSM 用，避免它们卡在等 `sd_done`。
+3. **数码管诊断恢复**（极简，六位静态显示同一个十六进制数字，约 20 LUT，无动态扫描）：
+   `state_code` 的取值：
+   | 显示 | 含义 |
+   |---|---|
+   | `0` | SD 还没初始化完成（卡没应答／初始化卡死） |
+   | `1` | 空闲就绪（已初始化，等扫描/装载） |
+   | `2` | 正在扫描扇区 |
+   | `A`~`E` | `bmp_read` 内部错误码 |
+
+**门禁（完整 syn + phy + bitgen）**
+
+| 项 | v16（A2A1A3C5） | v17（0E8C00D8） | 变化 |
+|---|---|---|---|
+| mslices | 4369 | **4318** | -51 |
+| LUT | 16401 | **16351** | -50 |
+| REG | 6106 | **6165** | +59 |
+| BRAM9K | 54 | 54 | 0 |
+| DSP | 20 | **20** | 0 |
+| Setup | +554 ps | **+805 ps** | +251 ps |
+| Hold | +27 ps | **+27 ps** | 0 |
+| FEPS | 0 | 0 | - |
+
+综合：15968 LUT / 5986 REG / 54 BRAM / 20 DSP。
+bit：`bitstream/HDMI2_HDMI14_Player_zone_badge.bit`（669,200 B，
+MD5 `0E8C00D8DB3302F2C3E0995C12BD9618`）。
+
+
+### 二十七、2026-10-25 按用户要求回退到 v14
+
+用户判断 v15/v16/v17 引入了更多问题（黑屏、无图、无音乐），要求回到 v14。
+
+**已回退的改动**
+| 版本 | 内容 | 回退方式 |
+|---|---|---|
+| v15 | 没图时垫页面底色（`img_under`）；BGM 不等首图（`aud_boot_ok`，0.5 s） | 恢复 `vout_data = (display_valid \|\| menu_active \|\| dir_active) ? vout_data_osd : 24'd0`；删掉 `aud_boot_ok`，门控回到 `display_valid` |
+| v16 | `sd_card_bmp` 扫不到图每 2 s 重扫；音频只走 WAV（静音兜底） | 删掉 `rescan_cnt` / 重扫分支；音频源回到 v14 的三态选择（WAV / 找到过 WAV 就静音 / 没有 WAV 回落 I2S） |
+| v17 | SD 初始化看门狗（`sd_retry` 软复位整条 SD 链）；数码管六位显示 `state_code` | 删掉看门狗与 `rst_sd`、恢复各客户端 `.rst(rst)`；删掉 `dbg_seg`，数码管回到"全灭" |
+
+**校验方式**：综合结果 15993 LUT / 6292 REG / 54 BRAM / 23 DSP，
+P&R 4381 mslices / Setup +797 ps / Hold +21 ps / 0 FEPS —— 与 v14 记录逐项相同。
+bit 的 MD5 为 `595D4526364ACE9F85CDB2B56709C521`（v14 原文件是 `5C67733E…`，
+差异来自工具写进 bit 的生成时间，逻辑内容一致）。
+
+**这个版本已知的遗留问题**（正是 v15~v17 想解决的，但现在不要了）：
+1. 上电后头几秒会听到内部 I2S 测试音（`wav_found_any` 还是 0 时的回落），随后才切到 MENU.WAV；
+2. 点进展区、首图还没装载完时整层是黑的（`vout_data` 门控），约 2~3 s；
+3. 若 SD 在固化启动后没有初始化成功，没有重扫/看门狗兜底，会一直停在 `1 / 0`。
+
+v17 的 bit 保留在 `bitstream/HDMI2_HDMI14_Player_zone_badge_v17_sd_watchdog.bit`。
+
+
+### 二十八、2026-10-25 v19 音频只认 WAV：上电第一段声音就是 MENU.WAV
+
+**现象（用户板测）**：TF 卡根目录里根本没有 `MAIN.WAV`（老工程固化进 FLASH 的那首），
+但上电后先响的却是"那段老音乐"，之后才切到 `MENU.WAV`。
+
+**根因**：不是读错了文件，也不是 FLASH 里有残留音频 —— 是 v14 的音频源回落分支：
+
+```verilog
+assign audio_left_src = wav_active_vid ? 采样 : (wav_found_any ? 24'sd0 : audio_left_data);
+```
+
+上电到"找到第一张 WAV"之间 `wav_found_any = 0`，音频源落到 `hdmi_audio_tone_i2s_64fs`
+那个内部测试音（C4-D4-E4-G4-A4-C5-A4-G4，每音 0.5 s 循环）。它每次都一模一样、
+又正好出现在上电第一段，所以一直被当成"FLASH 里那首 MAIN.WAV"。第 25 条其实已经查过一次，
+但 v16 的其它改动被回退时把这条也一起带回来了。
+
+**改法（`rtl/top_tf_hdmi_audio.v`）**
+1. 删除 `hdmi_audio_tone_i2s_64fs` 和 `I2S_receiver` 两个实例及其连线 —— 测试音从设计里消失，
+   不是"靠综合裁掉"；
+2. `audio_left_src / audio_right_src` 只保留两态：正在放 WAV → 采样，其它 → 0（静音）；
+3. `audio_valid_src` 改成 `wav_sample_valid`（48 kHz 逐样本节拍，`wav_stream_player` 的读侧
+   无论有没有在播都按 `wav_tick` 给一拍、缓冲空时给 0 值）。
+   **不能恒为 1**：`audio_arc_calculate` 用它数样本算 ACR 的 CTS，48 个样本 @25 MHz 应是 25000，
+   恒 1 会算成 48，HDMI 接收端会把采样率判错；
+4. 音频 PLL 和 `audio_mclk` 保留：`rst_all = ~rst_n | ~audio_pll_lock`，PLL 是复位链的一环，
+   不能因为它"没别的用途"删掉。
+
+**`constraints/timing.sdc` 的必要修正**：`audio_mclk` 时钟（12.288 MHz）现在没有任何负载，
+工具会把时钟网裁掉；SDC 里 4 条引用 `audio_mclk` 的命令（`rename_clock`、
+`set_clock_groups -asynchronous`、`set_clock_uncertainty -hold`、两条 `set_false_path`）
+会报 `USR-8130/8159` 并**整条失败**。实测 `set_clock_uncertainty -hold 0.050` 失效后
+Hold WNS 从 421 ps 变成 471 ps（少 50 ps 余量，正好是那条 uncertainty），所以必须把
+`audio_mclk` 从这 4 条命令的时钟列表里删掉，而不是留着看告警。
+
+**门禁（完整 syn + phy + bitgen）**
+
+| 项 | v18/v14（595D4526） | v19（1D0CE03B） | 变化 |
+|---|---|---|---|
+| mslices | 4381 | **4293** | −88 |
+| lslices | 4404 | **4331** | −73 |
+| LUT（P&R） | 16348 | **16185** | −163 |
+| REG（P&R） | 6456 | **6078** | −378 |
+| LE | 17203 | **16886** | −317 |
+| BRAM9K | 54 | **54** | 0 |
+| DSP | 23 | **20** | −3 |
+| Setup | +797 ps | **+861 ps** | +64 ps |
+| Hold | +21 ps | **+26 ps** | +5 ps |
+| FEPS | 0 | 0 | - |
+
+- 综合：15792 LUT / 5900 REG / 54 BRAM / 20 DSP / 3 PLL；`HDL-8007|PRJ-8|black box|ERROR:`
+  过滤无命中；`USR-8159` 仍是原来那 6 条（删掉的数码管调试寄存器），没有新增。
+- P&R：place seed **3**（seed 5 会落成 Setup 只有 +124 ps，seed 1 +296 ps，
+  seed 3 +861 ps —— 临界路径是 `sd_card_bmp` 的 zone_scan→load_sector 组合链，
+  与本次音频改动无关，纯布局差异）。
+- 资源账：测试音 −123 LUT / −107 REG / −1 DSP，I2S 接收器 −约 60 REG，
+  音频 packet 模块也跟着从 143 LUT/235 REG 掉到 121 LUT/163 REG（音频源变简单）。
+- bit：`bitstream/HDMI2_HDMI14_Player_menu_wav_first.bit`（669,200 B，
+  MD5 `1D0CE03B2A7F8A71432433F5B4A4BD6F`），已用 `download -bit` 下载到板子
+  （`PRG-2014 : Chip validation success`）。
+
+**上板预期**：上电静音 → 首图从 TF 卡装进 SDRAM（约 1~3 s）→ `MENU.WAV` 循环；
+进 A/B/C/D 区换 A/B/C/D.WAV。**不会再有任何"老音乐"**，哪怕卡里一张 WAV 都没有
+（那就是全程静音 —— 要恢复"没卡也有声音"就得把测试音加回来，二者不可兼得）。
+
+
+### 二十九、2026-10-25 v20-dbg 进任何展区都停在开机那张图（加板上诊断码 + 修 MBR）
+
+**现象（用户板测 v19）**：进任何展区都显示曾侯乙编钟（开机那张），翻页/换区都不动；
+`MENU.WAV` 与分区 BGM 都正常、且与所选展区对应。再烧一次就没声音、页面卡住。
+
+**为什么先把诊断加上**：v19 只改了音频源和 `timing.sdc` 的 `audio_mclk`，图片通路一行没动；
+而 `sd_card_bmp` 的分区逻辑与 `git HEAD`（官方四区版）逐字节相同，只在两处加过注释。
+也就是说这不是本次改动的回归，而是图片通路里一条一直存在、只是没被盯住的路径。
+没有逻辑分析仪，靠猜没意义，所以这一版先在**数码管**上把内部状态"打印"出来。
+
+**三个改动**
+1. **`fat32_zone_scan.v` 支持 MBR 分区表**（真 bug）：老代码在 S_BOOT_W 里
+   `part_lba <= 32'd0`，只要卡的 LBA0 是 MBR（Windows 分区表格式化常见，FAT32 从 2048 起），
+   就会用错的几何读根目录 → A01..D10 一张都扫不到 → 四张分区表全空 → 进任何展区都不换图、
+   A/D 也动不了（`zone_cur_count = 0`）。现在按 BPB 的 bytes-per-sector 判 MBR：
+   不是 512 就跳到 `part_w`（446+8）重读 BPB，一次为限（`mbr_tried`）。
+   注意这个 bug 只影响分区表：`fat32_find_file`（WAV）自己带 MBR 处理，所以"有声音"是真的。
+2. **`sd_card_bmp.v` 空分区保护**：分区表为空时不再拿 `sec_mem` 的复位值 0 当扇区地址去装载
+   （那条路 bmp_read 头部不匹配会静默失败，屏上看着就是"卡住"），直接忽略这次切换。
+3. **数码管静态状态码**（`dbg_state`，六位同时显示同一字符）：
+   | 码 | 含义 |
+   |---|---|
+   | `0` | 分区装载已完成（健康） |
+   | `1` | 正在装载（<8 s） |
+   | `2` | 分区请求挂着但没开始装载（等 scan_done/bmp_ready/load_busy） |
+   | `3` | 至今没收到过分区请求（`zone_apply` 没跨到 sd 域） |
+   | `4` | 该分区图片表为空（FAT/MBR 解析失败） |
+   | `5` | 装载超过 8 s 没完成（卡死；29 bit 看门狗） |
+   | `6` | 收到过请求但既没进分区模式也没装载 |
+   | `8` | SD 还没初始化完成 |
+
+**门禁（完整 syn + phy + bitgen）**
+
+| 项 | v19（1D0CE03B） | v20-dbg（3CF6F3DF） | 变化 |
+|---|---|---|---|
+| mslices | 4293 | **4346** | +53 |
+| LUT（综合） | 15792 | **15952** | +160 |
+| REG（综合） | 5900 | **6013** | +113 |
+| BRAM9K | 54 | **54** | 0 |
+| DSP | 20 | **20** | 0 |
+| Setup | +861 ps | **+472 ps** | −389 ps |
+| Hold | +26 ps | **+25 ps** | −1 ps |
+| FEPS | 0 | 0 | - |
+
+bit：`bitstream/HDMI2_HDMI14_Player_dbg_zone.bit`（669,200 B，MD5 `3CF6F3DFBD8A31B547F2691E10A61346`），
+已 `download -bit` 到板子。
+
+**注意**：`download -bit` 是写 SRAM，而且 JTAG 重配置不会复位 TF 卡 ——
+**每次下载后必须断电/复位一次**再测，否则卡停在旧的 SPI 状态，就会出现
+"再烧一次没声音 + 页面卡住"（对应第 26 条 SD 初始化没有看门狗的老问题）。
+
+
+### 三十、2026-10-25 v21 装载与 WAV 串行化：修掉"音乐一响就装不进图"
+
+**板测两次实验（决定性证据）**
+| 实验 | 操作 | 结果 |
+|---|---|---|
+| 1 | 烧完趁"还没出声"**马上**进各展区 | 黑屏一会 → 出声，各展区声音都对（说明分区装载**能**完成） |
+| 2 | 烧完**等音乐放起来**再进展区 | 显示开机那张图，数码管 **5** = 装载 >8 s 没完成 |
+
+两组唯一的差别是：装载的时候 SD 总线上有没有 WAV 的请求。所以卡死不是
+FAT/MBR 解析（那会是 4/3），而是**图片装载和 WAV 抢同一条 SD 总线**。
+
+**机制**（`sd_card_bmp` 的仲裁）
+- WAV 一侧的请求是**电平**（`fat32_find_file` 在 S_ROOT 一直拉高，
+  `wav_stream_player` 在 WS_REQ 等 `!sd_busy`），仲裁里 WAV 优先
+  （`arb_req = (wav_sector_req || wav_x_active) ? 1 : img_sd_sec_read`）；
+- 反过来，图片的 `sd_sec_read_end` 又被 `(wav_x_active || zscan_active)` 屏蔽；
+- 两边同时在场时，WAV 会**吃掉图片那一笔的 done**（它的 `sd_done` 不屏蔽），
+  图片这边则被 `wav_x_active` 遮掉 end → `bmp_read` 永远停在 ST_LOAD_DATA →
+  `load_busy` 清不掉 → 画面再也不换、A/D 也动不了（都等 `!load_busy`）。
+
+**改法（三处，纯串行化，不动协议）**
+1. `sd_card_bmp` 新出 `img_load_active = ~bmp_ready`（图片扫描/装载进行中）；
+2. 顶层：装载期间把 WAV 的 `sd_req`（播放器和查找器两条）全部拉低，
+   并把播放器看到的 `sd_busy` 抬起来 —— 否则它会在"两个图片扇区之间那 1 拍空闲"
+   里溜进 WS_FILL，然后永远等不到自己的 done；
+3. `sd_card_bmp` 里 WAV 的 valid/done 改成"只给它自己那一笔事务"
+   （`wav_x_active`），别人的 done 不再漏给 WAV。
+
+**代价（要跟用户确认是否接受）**：换区/翻页时图片装载拿满总线，音乐**静音 1~2 s**
+（不是断，装载完从原位置接着放）。换来的是"一定能换图"。
+
+**门禁（完整 syn + phy + bitgen）**
+
+| 项 | v20-dbg（3CF6F3DF） | v21（DB25E79C） |
+|---|---|---|
+| mslices | 4346 | **4343** |
+| LUT（综合） | 15952 | **15972** |
+| REG（综合） | 6013 | **6012** |
+| BRAM / DSP | 54 / 20 | **54 / 20** |
+| Setup / Hold | +472 / +25 ps | **+630 / +25 ps** |
+
+bit：`bitstream/HDMI2_HDMI14_Player_busfix.bit`（669,200 B，MD5 `DB25E79C276EDBE5C13BBEB8DEB85AD1`），
+已 `download -bit` 到板子。数码管状态码保留（确认正常后出干净版关掉）。
+**上电后请先断电/复位一次再测**。
+
+
+### 三十一、2026-10-25 v22 图片优先 + 事务归属仲裁：换区/翻页不再静音
+
+**用户反馈**：v21 修好了（数码管 0，进区能换图），但**翻页（A/D）静音 1~2 s 不可接受**；
+换区静音可以接受，更希望直接把"抢总线"这件事解决掉。
+
+**做法：把 v21 的"整段静音"换成两条结构性保证**
+1. **图片优先**：`arb_req = zscan ? 1 : (img_req ? 1 : wav_req)`。
+   图片只要在请求就给它；WAV 只在"两个图片扇区之间那 1 拍空档"里进来，
+   所以装载最多被拖慢几个百分点，绝不可能被饿死（反过来也不会饿死 WAV：
+   它每 5 ms 才需要 1 个扇区，而空档每 0.5 ms 就有一次）。
+2. **事务归属**：事务开始那一拍锁存 `owner_wav`，`valid/done` 只发给归属方：
+   ```verilog
+   wav_sector_done  = owner_wav ? arb_done : 1'b0;
+   img_sd_sec_end   = (owner_wav || zscan_active) ? 1'b0 : arb_done;
+   ```
+   v20 卡死的真正机制就是"WAV 把图片那一笔的 done 当自己的，同时图片的 done
+   又被 `wav_x_active` 遮掉"——有了 owner，这种双吞在结构上不可能再发生。
+3. 播放器看到的 `sd_busy` 改成"总线当前不归我"：
+   `wav_sector_busy = arb_busy | img_req | zscan_active`。
+   否则它会在图片赢得授权的那一拍（`arb_busy` 还没抬起来）误以为拿到总线，
+   溜进 `WS_FILL` 之后永远等不到自己的 done —— 这也是 v20 卡死的另一半原因。
+4. `wav_x_active` 整个删掉（不再需要这个"抢锁"寄存器）。
+
+**顺手加的保险**：`load_busy` 挂 8 s 没提交就判定卡死，脉冲 `bmp_read.abort`
+把它打回空闲并清 `load_busy`（数码管锁存显示 5）。这样即使偶发卡住，
+换区/翻页还能重来，不会整屏永久死掉。`frame_fifo_write` 在新 `write_req`
+的 S_ACK 会 `fifo_aclr` 清 FIFO，所以中途放弃一帧不会污染下一帧。
+
+**门禁（完整 syn + phy + bitgen）**
+
+| 项 | v21（DB25E79C） | v22（7E79326A） |
+|---|---|---|
+| mslices | 4343 | **4331** |
+| LUT（综合） | 15972 | **15962** |
+| REG（综合） | 6012 | **6013** |
+| BRAM / DSP | 54 / 20 | **54 / 20** |
+| Setup / Hold | +630 / +25 ps | **+657 / +33 ps** |
+
+bit：`bitstream/HDMI2_HDMI14_Player_arbiter.bit`（669,200 B，MD5 `7E79326A0AFC6709B279DF3EEF7F4192`），
+已 `download -bit` 到板子。数码管状态码保留。
+
+
+### 三十二、2026-10-25 v23 缩短上电等待：首扫从 A01 扇区开始 + 起播不等首图 + 没图垫底色
+
+**现象**：一切功能正常，但上电要等很久才出图/出声；这期间点进展区是黑屏。
+
+**主因（不是 SD 慢，是扫描起点错）**：`bmp_read` 的开机"找前 4 张 BMP"是
+**从扇区 0 一个扇区一个扇区往后扫**。大卡上 FAT32 有两份 FAT，一张 8~16 GB 的卡
+FAT 区就有几 MB~几十 MB —— 也就是几千到几万个扇区。每个扇区一次 CMD17 约 0.3~0.5 ms，
+**光走过 FAT 区就要几秒到十几秒**，然后才开始读第一张图。这才是"等太久"的根源。
+
+**改法（三处）**
+1. **首扫从 A01 的确切扇区开始**：分区扫描器 `fat32_zone_scan` 本来就在开机头几毫秒
+   跑了（最高优先级），它已经知道 A01..D10 每个文件的起始扇区。现在
+   `scan_start_sector = zone_table_ok ? sec_mem[0] : SCAN_START_SECTOR`
+   （扫描范围同理给 start+65535），于是首扫只需读 4 个扇区（A01 命中后按
+   `file_sector_count` 跳到 A02/A03/A04）就结束 —— 从"几秒~十几秒"变成**几毫秒**。
+   分区表为空（不是 A01..D10 命名）时自动退回老行为，不影响兼容性；
+   另加 84 ms 兜底超时（`boot_wait`），即使分区扫描卡住也不会不进扫描。
+2. **音乐起播不等首图**：音频 FSM 的门槛从 `display_valid`（要等首图装完）改成
+   **`boot_ok` = SD 初始化完成 + 分区扫描完成**（几十毫秒）。v22 的"图片优先 +
+   事务归属"仲裁已经保证两者不打架，所以现在 MENU.WAV 几乎上电就响，
+   图片随后 ~1 s 出来。
+3. **没图时不再黑屏**：图片层加 `img_under = display_valid ? vout_data_adj : C_FADE`
+   （页面底色 `#EEF5FC`），并把输出从
+   `(display_valid||menu_active||dir_active) ? vout_data_osd : 24'd0` 改成始终输出 OSD 链。
+   于是装载期间看到的是"淡蓝页面 + 顶栏时间 + 字幕"，不是纯黑；
+   因为只在 `display_valid=0` 时替换，SDRAM 里正在写的半帧不会露出来（不撕裂）。
+
+**上电时间线（预期）**：SD 初始化 ~0.1 s → 分区扫描几毫秒 → **音乐 ~0.1~0.2 s 起** →
+首图 1801 个扇区读完 ≈ 0.7~1 s 上屏。原来要 5~15 s。
+
+**门禁（完整 syn + phy + bitgen）**
+
+| 项 | v22（7E79326A） | v23（F9764873） |
+|---|---|---|
+| mslices | 4331 | **4404** |
+| LUT（综合） | 15962 | **16109** |
+| REG（综合） | 6013 | **6037** |
+| BRAM / DSP | 54 / 20 | **54 / 20** |
+| Setup / Hold | +657 / +33 ps | **+596 / +26 ps** |
+
+bit：`bitstream/HDMI2_HDMI14_Player_fastboot.bit`（669,200 B，MD5 `F9764873EA779E098A797AAB557BE81E`），
+已 `download -bit` 到板子。
+
+**再快的空间（下一步，可选）**：现在一次装载是 1801 次单扇区读（CMD17），
+命令开销占了近一半。若把 SD 读改成 **CMD18 多扇区连续读**（一次读 N 个扇区），
+首图能压到 ~0.3 s、换区/翻页的装载也能快 2~3 倍；要动 `sd_card_cmd` +
+`sd_card_sector_read_write` + 字节流接口，属于中等改动，需要单独一版验证。
+
+
+### 三十三、2026-10-25 v23 固化到配置 FLASH（上电自启动）
+
+**命令行固化**（与 TD GUI 里"Program Flash"等价，命令形式取自官方例程日志：
+
+`嵌赛\官方资料\2_Example\...\td_*.log` 里的 `download ... -mode program_spi`）：
+
+```tcl
+# project/dsh_flash.tcl
+catch {list_cable} e0
+catch {download -bit {E:/AnLU_QianSai/HDMI2-EG4S20_New/HDMI2-EG4S20/bitstream/HDMI2_HDMI14_Player_fastboot.bit} \
+       -mode program_spi -v -spd 8 -sec 64 -cable 0 -flashsize 128} e1
+exit 0
+```
+```powershell
+E:\AnLu_Install\bin\bw_commands_prompt.exe E:/AnLU_QianSai/HDMI2-EG4S20_New/HDMI2-EG4S20/project/dsh_flash.tcl
+```
+工具内部会依次执行：
+`bit_to_vec -m program_spi` → `program_spi -cable 0 -spd 8`（63 s，擦+写）→
+`bit_to_vec -m verify_spi` → `program -cable 0 -spd 8`（顺带把 SRAM 也配好）。
+
+**本次固化结果**：`PRG-2014 : Chip validation success: EG4S20BG256`、
+`PRG-1001 : SPI Flash ID is: ef`、`program_spi` 63 s 无报错、整体 75 s 完成。
+烧的还是同一个 `.bit`（`bit_to_vec -m program_spi` 会把它转成 SPI 配置流），
+不需要另做"flash 版"文件。
+
+**验证方法**：**拔电再上电**（不能只按复位、也不能只重新 download），
+FPGA 会从配置 FLASH 自加载：
+- 正常：上电约 0.3 s 配置完成 → 几百毫秒内 `MENU.WAV` 起 → 约 1 s 首图上屏；
+- 若数码管停在 **8**（SD 未初始化）、没有图也没有音乐：就是第 25/26 条那个
+  "FLASH 配置期的总线活动惊到 TF 卡、SD 不初始化"的老问题。那时需要再加
+  "SD 初始化看门狗"（1 s 没初始化就软复位整条 SD 链并重试，v17 做过、可回收）。
+  现在这版没有看门狗。
+
+**回退办法**：任一旧 bit 用 `bw_commands_prompt` 的 `download -bit ...`
+（不带 `-mode program_spi`）只写 SRAM 就能临时验证；要恢复 FLASH 里的旧版本，
+把旧 bit 用 `dsh_flash.tcl` 再固化一次即可（例如 `HDMI2_HDMI14_Player_zone_badge.bit`）。
+
+
+### 三十四、2026-10-25 v24 固化后开场白被"吃掉"前半段：上电先静音 2.5 s 再起播
+
+**现象**：固化（断电自启动）之后，主界面音乐从中间开始放 —— 开场白
+"欢迎来到博物馆智能展品讲解系统"只剩"…系统"；而用 JTAG 下载（不断电）时是完整的。
+
+**这不是播放位置/数据的问题，是 HDMI 接收端还没建链**：
+- 断电上电时整条 HDMI 链路要重新建立，电视/显示器要 1~2 s 才锁上 TMDS 并开始解音频包；
+- FPGA 一上电（约 0.3 s）就开始往 HDMI 送 WAV 采样，前面那 1~2 s 送出的话
+  接收端**直接丢弃**（没锁上就收不了），所以听到的是"从中间开始"；
+- JTAG 下载时 FPGA 一直在跑（只断约 0.5 s），显示器通常不会丢锁 → 听起来是完整的。
+  这也解释了"只有固化后才这样"。
+
+**改法**（`rtl/top_tf_hdmi_audio.v`）：上电后先静音 **2.5 s** 再让播放器起播：
+```verilog
+localparam [26:0] AUD_HOLD_CYC = 27'd124_999_999;   // 2.5 s @ 50 MHz
+wire wav_play_enable = (aud_lba_q != 32'd0) & aud_hold_done;
+```
+- 只延迟**起播**：WAV 查找、分区扫描、首图装载全都照旧提前，所以图片速度和换区/翻页
+  一点没变慢（换区时链路早就稳了，`aud_hold_done` 恒 1）；
+- 若换的显示器更慢、开场白还缺，就把 `AUD_HOLD_CYC` 加到 3~4 s（50 MHz 计数，
+  3 s = 27'd149_999_999，4 s = 27'd199_999_999）。
+
+**门禁（完整 syn + phy + bitgen）**
+
+| 项 | v23（F9764873） | v24（F9526FD2） |
+|---|---|---|
+| mslices | 4404 | **4377** |
+| LUT / REG（综合） | 16109 / 6037 | **16132 / 6064** |
+| BRAM / DSP | 54 / 20 | **54 / 20** |
+| Setup / Hold | +596 / +26 ps | **+306 / +41 ps** |
+
+bit：`bitstream/HDMI2_HDMI14_Player_audiohold.bit`（669,200 B，MD5 `F9526FD2E4816E4A225C7CB8E173114A`），
+已 `download -bit ... -mode program_spi` 固化（`program_spi` 63 s 无报错）。**拔电重上电验证。**
+
+
+### 三十五、2026-10-25 v25 上电静音改 3 s；修"主界面点设置后背景透出图片页"
+
+1. 上电静音 2.5 s → **3 s**（`AUD_HOLD_CYC = 27'd149_999_999`，50 MHz）。
+
+2. **"主界面点设置，背景变成图片页"的根因**：
+   `settings_panel` 与 `main_menu` **共用一份 `font_rom`**（README §2.6，省 8 块 BRAM），
+   字模地址由 `settings_active` 二选一。所以设置面板打开时 `main_menu` 必须被
+   `blank(settings_active)` 关掉（否则两边抢字库地址，菜单字模会串成面板的字）。
+   菜单一 blank，透出来的就是**它下面那一层** —— 而 v23 之后图片层是常开的，
+   于是透出来的是 SDRAM 里的图片页（顶栏"第 n 页/共 n 页"、展品照片、底栏展区名），
+   看着就像"背景变成了图片"。
+
+   **改法**（`top_tf_hdmi_audio.v`，一行）：
+   ```verilog
+   wire [23:0] img_under = (display_valid && !menu_active) ? vout_data_adj : C_FADE;
+   ```
+   主菜单在位时图片层垫页面底色。主菜单本身是不透明满页，屏蔽图片层对它没有视觉影响；
+   从**图片页**长按编码器打开设置时（`menu_active=0`）仍然是"当前图片压暗一半"，
+   保持原设计（"面板背景 = 打开时的界面"）。
+
+**门禁（完整 syn + phy + bitgen）**
+
+| 项 | v24（F9526FD2） | v25（3C390C96） |
+|---|---|---|
+| mslices | 4377 | **4392** |
+| LUT / REG（综合） | 16132 / 6064 | **16132 / 6064** |
+| BRAM / DSP | 54 / 20 | **54 / 20** |
+| Setup / Hold | +306 / +41 ps | **+536 / +25 ps** |
+
+bit：`bitstream/HDMI2_HDMI14_Player_v25.bit`（669,200 B，MD5 `3C390C96A5DED55170191FCC873CC5C8`），
+已 `program_spi` 固化（63.5 s 无报错）。**拔电重上电验证。**
+
+
+### 三十六、2026-10-25 v26 上电时间忽长忽短（真 bug）+ 设置背景要"真的是主界面"
+
+**① 上电时间不一致 —— 是我在 v23 埋的一个竞态**
+v23 的 `boot_wait` 从**复位**开始数 84 ms，超时就用"从扇区 0 走 FAT"的慢扫兜底。
+但 SD 初始化本身要 100~500 ms —— 等 `sd_init_done` 到来时计时早就溢出了，
+于是首扫经常抢在分区扫描（几毫秒）前面启动：
+- 抢输 → 用 A01 扇区快扫，上电约 1 s；
+- 抢赢 → 退回扇区 0 慢扫（走过几 MB~几十 MB 的 FAT），上电几秒~十几秒。
+
+**改法**：计时改成**从 `sd_init_done` 开始**数，并把窗口放宽到 168 ms
+（`boot_wait[23]`，24 bit）。分区扫描只要几毫秒，几乎必定先完成，
+上电时间就稳定在"SD 初始化(100~500 ms) + ~1 s 首图"。
+
+**② 主界面点设置，背景不是主界面 —— 根因是字库共用**
+`main_menu` 与 `settings_panel` 共用一份 `font_rom`（地址由 `settings_active` 二选一），
+所以设置面板一打开就必须 `main_menu.blank(settings_active)` 把菜单整层让开，
+否则两边抢字库地址、菜单字模会被带歪。菜单让开之后背景就露出下一层 ——
+v25 只是把"图片页"换成"页面底色"，用户要的是**主界面本身**。
+
+**改法**：菜单和面板**各用一份 font_rom**（`u_menu_font` / `u_set_font`），
+去掉 `settings_active` 的地址二选一，`main_menu.blank` 接 `1'b0`。
+于是设置面板打开时菜单照常铺在底下、外圈被面板压暗 50%，面板叠在上面 ——
+和网页设计"面板背景 = 打开时的界面"一致。
+**代价：BRAM 54 → 62 / 64（只剩 2 块）**。后面若还要加 BRAM 要先从这里腾
+（例如把 `zone_badge_rom` 的 2 bit/px 降到 1 bit/px 可省 6 块）。
+
+**门禁（完整 syn + phy + bitgen）**
+
+| 项 | v25（3C390C96） | v26（7BDFB39B） |
+|---|---|---|
+| mslices | 4392 | **4392** |
+| LUT / REG（综合） | 16132 / 6064 | **16124 / 6065** |
+| BRAM / DSP | 54 / 20 | **62 / 20** |
+| Setup / Hold | +536 / +25 ps | **+936 / +25 ps** |
+
+bit：`bitstream/HDMI2_HDMI14_Player_v26.bit`（669,200 B，MD5 `7BDFB39B86F3D930DEB20F9825F8AC5C`），
+已 `program_spi` 固化（63.9 s 无报错）。
+
+
+### 三十七、2026-10-25 v27 常量位宽把 3 s 截成 0.32 s + 设置面板背景右移 2 px
+
+**① 开场白还是被吃掉 —— 是我写错了常量位宽**
+v25 把静音写成：
+```verilog
+localparam [26:0] AUD_HOLD_CYC = 27'd149_999_999;   // 想 3 s
+```
+27 bit 最大 134,217,727，**149,999,999 被静默截断成 15,782,271**（≈0.32 s），
+于是"3 s 静音"实际只有 0.32 s —— 显示器还没锁上链路，开场白又被丢掉，
+听感就是"还是从'…系统'开始念"。
+（v24 的 2.5 s 用 `27'd124_999_999`，在 27 bit 范围内，所以 v24 是有效的；v25 改 3 s 就溢出了。）
+**改法**：计数器与常量都改成 28 bit（`28'd149_999_999`），3 s 现在是准的。
+
+**② 设置面板打开后背景右移 2 px、左边一条白竖线**
+`settings_panel` 里 `pix`（含"面板外压暗背景"）走的是 `pix_s1 → pix_s2` 两拍流水
+（为了和 `font_rom` 的字模对齐），而 `active=0` 时输出的是**零延迟**的 `rgb_in`。
+于是设置一打开，整层背景（连同底下的主菜单）右移 2 px，左边露出上一行末尾的像素
+—— 就是那条白竖线。
+**改法**：压暗层改成用**当前像素** `rgb_in` 直接压暗（零延迟，和不开面板时完全对齐），
+并加 `pbg_s1/pbg_s2` 标记"这一拍只是背景"，面板自己的框/条/文字仍走 `pix_s2`：
+```verilog
+wire [23:0] bg_dim = {1'b0, rgb_in[23:17], 1'b0, rgb_in[15:9], 1'b0, rgb_in[7:1]};
+wire        pix_is_bg = (pix == bg_dim);
+assign rgb_out = !active ? rgb_in : pbg_s2 ? bg_dim :
+                 boxink_s2 ? 24'hF0CB4D : (ink ? (gacc_s2 ? 24'hF0CB4D : C_INK) : pix_s2);
+```
+
+**门禁（完整 syn + phy + bitgen）**
+
+| 项 | v26（7BDFB39B） | v27（ED788412） |
+|---|---|---|
+| mslices | 4392 | **4403** |
+| LUT / REG（综合） | 16124 / 6065 | **16190 / 6066** |
+| BRAM / DSP | 62 / 20 | **62 / 20** |
+| Setup / Hold | +936 / +25 ps | **+1080 / +21 ps** |
+
+bit：`bitstream/HDMI2_HDMI14_Player_v27.bit`（669,200 B，MD5 `ED78841220AC09286E17909905F6999B`），
+已 `program_spi` 固化（64.3 s 无报错）。
+
+
+### 三十八、2026-10-25 v28 上电静音 3 s → 4 s（开场白只差几十~几百 ms 时留余量）
+
+v27 之后 3 s 静音已经生效，但显示器建链时间本身有几十~几百 ms 的抖动：
+板测"有时从'迎'开始，有时从'欢'开始"。说明 3 s 正好压在临界点上。
+**改法**：`AUD_HOLD_CYC = 28'd199_999_999`（4 s @ 50 MHz），留 1 s 余量。
+若换更慢的显示器还缺，就继续加大（5 s = `28'd249_999_999`，28 bit 上限 268,435,455）。
+
+| 项 | v27（ED788412） | v28（0C819D38） |
+|---|---|---|
+| mslices | 4403 | **4376** |
+| BRAM / DSP | 62 / 20 | **62 / 20** |
+| Setup / Hold | +1080 / +21 ps | **+233 / +21 ps** |
+
+bit：`bitstream/HDMI2_HDMI14_Player_v28.bit`（669,200 B，MD5 `0C819D38099D6BF93FBA06E9119C9B3D`），
+已 `program_spi` 固化（64.8 s 无报错）。
+
+
+### 三十九、2026-10-25 v29 分析"滋滋"录音 + 修 WAV 起播/循环的 LBA 差一拍
+
+**录音分析**（`嵌赛\音乐\录音机\录音机-20261025-1716.m4a`，用 Windows Media Foundation
+转成 wav 后分析：48 kHz 立体声、9.96 s、峰值 −36 dBFS、RMS −66 dBFS，录得很轻）：
+
+| 频段 | 能量占比 |
+|---|---|
+| 20~300 Hz | 0.12% |
+| **300~1000 Hz** | **89.6%** |
+| 1~3 kHz | 9.85% |
+| 3~6 kHz | 0.27% |
+| 6~12 kHz | 0.05% |
+| 12 kHz 以上 | 0.00% |
+
+- 3 kHz 以上几乎没有能量 → 录音里**不存在高频"嘶嘶"**；
+- 没有 50 Hz 工频线；
+- 按 5.33 ms（缓冲一扇区周期，187.5 Hz）和 21.3 ms 做梳状谱检测，都**没有**比音乐自身
+  谐波更突出的"咔哒"梳状线；
+- 15~19% 的采样点恰好为 0（说明录得很轻，大部分时间在 16 bit 的最低几位）。
+
+结论：**录音里看不到代码侧"滋滋"的电子痕迹**。要么是显示器/电视喇叭与功放在大音量下的
+底噪/失真，要么是录音太轻没录进来。需要用户做两个判别实验（见下）。
+
+**顺手修掉一个真 bug（会产生"咔"的一声）**：`wav_stream_player` 的 `sd_lba` 原来是
+"进 WS_FILL 才打一拍"的寄存器，而 `sd_sector_adapter` 是在**请求那一拍**就锁存 LBA 的
+—— 所以每次起播/循环重启，实际读的是**上一笔**的 LBA（上电时是 0 = 引导扇区，
+循环时是文件最后一个扇区），等于往音频流里插了 512 字节垃圾（≈10.7 ms 的"咔/滋"）。
+改法：`assign sd_lba = cur_lba;`（组合输出），锁存的就是当前要读的扇区。
+
+| 项 | v28（0C819D38） | v29（EED93AAC） |
+|---|---|---|
+| mslices | 4376 | **4431** |
+| BRAM / DSP | 62 / 20 | **62 / 20** |
+| Setup / Hold | +233 / +21 ps | **+779 / +26 ps** |
+
+bit：`bitstream/HDMI2_HDMI14_Player_v29.bit`（669,200 B，MD5 `EED93AACC0961E7C63B52DE1AF626285`），
+已 `program_spi` 固化（63.9 s 无报错）。
+
+**待用户确认的判别实验**（决定下一步怎么改）：
+1. 设置里把「音量」那一行 Enter 关掉音频（`audio_on=0`），听还有没有"滋滋"：
+   还有 → 喇叭/功放底噪，与代码无关；没有 → 在我们的音频链路里；
+2. 音量 25% 和 100% 对比：底噪随之变大 → 在信号里；不变 → 在功放后级；
+3. 若显示器有耳机/线路输出，用手机录它的输出（数字→模拟输出，绕开喇叭）再给我。
+
+**第二份录音分析**（`录音机-20261025-1729.m4a`，更大声：RMS −48 dBFS、峰值 −16 dBFS）：
+- 源文件 `MENU.WAV`：DC≈0、峰值 0.696（−3 dBFS）、能量 100~300 Hz 占 79%、300~1k 18%、6~12k 1.2%；
+- 录音在安静段（0.2~0.4 s）各频段是**平的底噪 ≈ −55 dB**（0-50 Hz 略高，有 50 Hz 工频成分，
+  那是环境/电源，不是我们发的）；
+- 把 3~8 kHz（HF）对 300~1500 Hz（MID）做电平拟合：**HF ∝ MID^0.22**，
+  而且 HF−MID 比值随电平升高反而**下降**（低电平 −24.4 dB → 高电平 −29.2 dB）
+  —— 这是"**固定底噪**"的特征，不是失真（失真会是 p≈2~3 且比值随电平上升），
+  也不是我们 PCM 里的东西（我们的静音样本是精确的 0，DC=0，
+  也没有 5.33 ms 周期掉块、没有 512 样本块重复）；
+- 结论：**"滋滋"极可能出在 HDMI 接收端之后（显示器喇叭/功放）或者录音设备本身**，
+  不在板子送出的数字流里。最终确认只需做上面第 1 条实验。
+
+
+### 四十、2026-10-25 v30 关音频即完全安静 → 判定为"信号激出来的后级失真"，整体降 6 dB
+
+**用户实验结论（决定性）**：
+- 设置里「音量」Enter 关音频（我们输出**精确的 0**）→ **彻底安静**；
+- 一放音乐 → **全程"滋滋"**，且随音量成比例。
+
+这组事实把责任锁定在"**被我们的信号激出来的**"那一侧：
+后级自噪声（功放底噪）在静音时也应该有，但静音时完全安静 → 不是后级自噪声；
+而我们的数字通路是可验证无损的（16 bit → 24 bit 左对齐、DC=0、无掉块/无块重复、
+静音样本精确为 0、ACR 的 N/CTS 比例精确）→ 也不是量化噪声。
+剩下的最可能解释：**显示器/电视的小喇叭 + 功放在接近满幅时失真/互调**（"滋滋"），
+这也完美符合"随音量成比例"和"PC 上放同一文件没有"。
+
+**改法（实验）**：整体数字增益降 6 dB（峰值 −6 dBFS → −12 dBFS），给后级留余量：
+```verilog
+wire [7:0] audio_gain = (vol_step == 2'd0) ? 8'd13 :
+                        (vol_step == 2'd1) ? 8'd32 :
+                        (vol_step == 2'd2) ? 8'd64 : 8'd128;   // 原 26/64/128/255
+```
+验收标准：把电视音量相应开大**到相同响度**后，"滋滋"若明显变小 → 就是后级过载，
+可以定在 −12 dBFS 或继续降到 −18 dBFS；若一点没变 → 需要换思路（见下）。
+
+**若降 6 dB 无效，下一步的候选**（按概率）：
+1. 显示器对 48 kHz 立体声做了自己的重采样/音效处理 → 试把 L/R 由 "L=R" 改成"只给 L、
+   R 给 0"或两边各 −6 dB 的等功率分配，看是否有差别；
+2. HDMI 音频包与 ACR 的相位关系异常 → 用 1 kHz 正弦（内部产生）做纯音测试，
+   纯音下若有"滋滋"就与音乐无关，能直接分离"数据"和"后级"；
+3. 换一台带 HDMI 的显示器/电视对比（用户侧，最省事）。
+
+| 项 | v29（EED93AAC） | v30（CF61AA9C） |
+|---|---|---|
+| mslices | 4431 | **4374** |
+| BRAM / DSP | 62 / 20 | **62 / 20** |
+| Setup / Hold | +779 / +26 ps | **+247 / +25 ps** |
+
+bit：`bitstream/HDMI2_HDMI14_Player_v30.bit`（669,200 B，MD5 `CF61AA9CC652337E038062A11966E0BA`），
+已 `program_spi` 固化（64.1 s 无报错）。
+
+
+### 四十一、2026-10-25 v31 关数码管调试码 + 第三项改成"轮播" + 实现扩展要求 3（图片缩放适配）
+
+**1) 数码管调试码关掉**：`localparam DBG_SEG_ON = 1'b0;`（省 ~40 LUT，评委看不到调试字符）。
+
+**2) 主菜单第三项：三号待定 → 轮播**
+- 字模不用重做：轮=0x87 / 播=0x88，和设置面板第 5 行同一组码（`main_menu.lbl_char`）；
+- 选中它 = 离开主菜单 + 打一拍 `auto_toggle` 打开自动巡展（顶栏会显示"轮播中"）；
+- `menu_ctrl` 新增 `wheel_pulse` 输出，顶层 `menu_wheel_start = menu_wheel & ~player_auto`
+  接到原来的 `auto_tog_tgl` 翻转条件上（已经是轮播态时不会反被关掉）。
+
+**3) 扩展要求 3：图片缩放适配（0 BRAM 实现）**
+`bmp_read` 现在接受 **640·N × 480·N（N=1/2/3）** 的 24 bit 非压缩 BMP：
+`640×480`、`1280×960`、`1920×1440`。装载时按 N 做整数抽取
+（`hph/vph` 相位计数：每 N 个像素取 1 个、每 N 行取 1 行），写进 SDRAM 的永远是标准
+640×480 帧 —— **显示通路、SDRAM 通路、时序全部不动**。
+- 为什么不用双线性：BRAM 已 62/64，行缓存至少要 2~3 块，拿不出来；
+- `bmp_read` 新出 `src_scale`，`sd_card_bmp` 在**提交新图那一拍**把它锁存成
+  `disp_scale`（和 `img_idx` 一起提交，保证"屏上那张"和"显示的比值"一致）；
+- `info_bands` 在 `disp_scale > 1` 时，把底栏左侧的 `n / m` 换成 **`1 / N`**
+  （只用已有数字和 '/' 字形，不加字库）—— 屏幕上能直接看到缩放比；
+- 演示素材生成器：`tools/make_scale_demo_bmps.py`
+  （把 `A02.BMP` 最近邻放大成 `A05.BMP` 1280×960、`A06.BMP` 1920×1440，
+  生成到 `SD卡上内容/`，拷进 TF 卡根目录即可）。
+- 装载耗时：A05（3.7 MB）≈3.5 s，A06（8.3 MB）≈8 s（整文件都要读一遍）。
+  现场翻页建议用 A05，A06 只作为"支持 3× 分辨率"的说明。
+
+**门禁（完整 syn + phy + bitgen）**
+
+| 项 | v30（CF61AA9C） | v31（2360EB93） |
+|---|---|---|
+| mslices | 4374 | **4373** |
+| LUT / REG（综合） | 16157 / 6034 | **16204 / 6053** |
+| BRAM / DSP | 62 / 20 | **62 / 20** |
+| Setup / Hold | +247 / +25 ps | **+995 / +33 ps** |
+
+bit：`bitstream/HDMI2_HDMI14_Player_v31.bit`（MD5 `2360EB93DB09AA75619D988F53BFBC61`），
+已 `program_spi` 固化（64.4 s 无报错）。
+
+**v31 补充：A05/A06 两张演示页已做成"真页面"并拷进 TF 卡**
+- 素材用了 `嵌赛\应用场景\博物馆照片-实拍\曾侯乙编钟` 里**没被 A01~A04 用过**的两张：
+  - `A05.BMP` = 1280×960，照片 `OIP-C (3).webp`（钟厅陈列实拍），角标"钟厅陈列"；
+  - `A06.BMP` = 1920×1440，照片 `R-C.jpg`（带 335/748/273 厘米标注的钟架线稿），角标"钟架尺寸"；
+- 版式直接复用 `A01.BMP`：只替换三处 —— ①卡片里的照片（高分辨率原图 cover/contain 贴入）、
+  ②白色圆角角标的文字、③**原来"第 n 页 / 共 4 页"那一行改成"源图 1280 × 960" /
+  "源图 1920 × 1440"**（同样的青色、同样的位置，先按左右两侧背景色做线性插值把旧字擦干净再画）；
+- 生成器：`tools/make_scale_demo_bmps.py`（同时输出按 N 抽取后的 640×480 预览到
+  `tools/_preview/A0{5,6}_page_dec.png`，用来核对"板上实际看到的样子"）；
+- 已直接写到 `F:\`（TF 卡）：A05 3.69 MB、A06 8.29 MB，卡内剩余 7.6 GB。
+
+**v31 再补：A01~A06 六页统一成"共 6 页 / 6 段进度"**
+- `A01~A04`：擦掉原来的"第 n 页 / 共 4 页"，在同一位置重画 **"第 n 页 / 共 6 页"**；
+  原来那 4 段圆角进度条（黄=当前页、浅蓝=其它）整体重画成 **6 段**（等距、当前页高亮），
+  起始 x=318、条宽 17 px、间隙 6 px、y 133..139，颜色沿用原图取样的
+  高亮 (229,192,60) / 常态 (214,222,237)。
+- `A05/A06`：同一套页码行 + 6 段进度，**另外**在页码行右侧（x=452）用青色
+  (70,146,164) 12 px 标注 **"源图 1280×960" / "源图 1920×1440"**。
+- 文字做法：先在 640×480 网格上用 4 倍渲染 + 阈值降采样得到"硬边"蒙版，
+  再按抽取比 N 用**最近邻**放大后贴到高分辨率页面上 —— 这样板上按 N 抽取回来
+  与 1× 页面的笔画逐像素一致（数值核对：页码行与 A01 的差异只有页码数字本身，
+  约 17~20 个像素）。
+- 六张都已覆盖写入 `F:\`，与 `SD卡上内容\` 的 MD5 逐一核对一致。
+- 生成器：`tools/make_scale_demo_bmps.py`（含 1× 改页码 + N× 重建两条路径）。
+
+**踩到的坑（记一笔）**：BMP 是 **BGR** 存储。第一版生成器 load 时按 "RGB" 读、save 时又原样写回，
+对"原图进原图出"的 A01~A04 正好两次对调抵消、看不出来；但 A05/A06 是"模板（已被对调）+ 正常 RGB 照片"
+混合，结果**照片红蓝对调**（红地毯变紫）。修法：`load` 把 BGR 转成 RGB、`save` 再转回 BGR，
+内存里始终是真正的 RGB。修完核对：A01 照片下半区均值 (172,25,32)、A05 (162,26,50) —— 都是红地毯 ✓。
+
+
+### 四十二、2026-10-25 v32 底栏页码恢复成 n / m + A05/A06 写自己的正文
+
+**1) 底栏 OSD 恢复成普通页码**
+v31 曾在"缩放显示"时把底栏左下角那格从 `n / m` 换成 `1 / N`（缩放比）。实际用起来和
+其它展区（例：B01 显示 `1 / 4`）口径不一致，容易误读，v32 撤掉这个替换：
+`disp_num`/`disp_total` 回到 `zone_idx+1` / `zone_count`。缩放比只由**图片里印的"源图 …"**体现。
+
+**2) A05/A06 换成自己的正文**（原来直接套 A01 的"编钟共六十五件…"）
+- 第 5 页（钟厅陈列）："钟厅按墓室原状陈列，三层曲尺形钟架依原大复原。六十五件青铜钟分列悬挂，
+  钟体错金铭文与红色地毯相映，重现战国诸侯礼乐场景。"
+- 第 6 页（钟架尺寸）："钟架通长七百四十八厘米，高二百七十三厘米，曲尺转角处长三百三十五厘米。
+  三层横梁承六十五件钟，可拆装搬运，是先秦大型乐器的制造典范。"
+- 排版按 A01 实测参数复刻：左边界 318、右边 601、字号 18 px、行高 30.5 px、首行缩进 36 px、
+  颜色 (61,75,99)、除末行外两端对齐；先在 640×480 上渲染成蒙版，再按抽取比最近邻放大，
+  板上抽取回来与 1× 渲染逐像素一致。
+- 抹掉模板旧正文用"按行背景均值填充"（先算本行亮度中值，明显更暗的像素替换成该行背景均值），
+  既不留残影也不留亮斑；生成器 `tools/make_page5_6.py`。
+
+**3) 布局/时序**
+place seed 3 这次只有 Setup +52 ps，换 **seed 4** 后 +479 ps（`phy_1` 的 tcl 已改成 4）。
+
+| 项 | v31（2360EB93） | **v32（3575B1B3）** |
+|---|---|---|
+| mslices | 4373 | **4383** |
+| BRAM / DSP | 62 / 20 | **62 / 20** |
+| Setup / Hold | +995 / +33 ps | **+479 / +21 ps**（seed 4） |
+
+bit：`bitstream\HDMI2_HDMI14_Player_v32.bit`（678,512 B，MD5 `3575B1B3C41DF4D8512C7FCC0184396E`）。
+**尚未固化**：这次下载器 `list_cable` 是空的（USB 没枚举到），`program_spi` 报
+`PRG-9505 USB device open error`；插回 USB 后重跑 `project\dsh_flash.tcl` 即可。
+
+**v32 追加修改（按用户 2026-10-25 反馈）**
+
+1. **进度条重做**：原来 6 段用的是"浅蓝 (214,222,237)"，和页面右上角装饰面板的底色
+   (222,230,244) 几乎一样，看上去糊成一整条长条。改成 6 段 **15 px 宽、7 px 间隙**、
+   非当前页用更深的 **(198,208,226)**、当前页 (229,192,60)、圆角 4、y 132..141 ——
+   和 B01 的四段同一风格，但排得下 6 段且看得清。
+2. **A05/A06 正文右边界**：原来首行缩进 36 px 后仍按整宽 283 px 两端对齐，导致首行
+   右端越界 36 px（截图里"三层曲"顶到装饰线上）。改为**每行右边界都严格 = 601**
+   （首行可用宽 = 601-318-36）。
+3. **正文末尾加说明**：页面 5/6 正文最后另起一行写
+   "该图片从1280×960缩放适配到640×480。" / "该图片从1920×1440缩放适配到640×480。"
+   （数字串当成不可拆整体，避免 "640×4 / 80" 这种断行）。
+4. **删掉"源图 …"标注**（页码行右侧那个青色标注不再需要，信息已并入正文末句）。
+5. A05/A06 正文改为（各 3 行 + 1 行说明）：
+   - 第 5 页：钟厅依墓室原状陈列，三层钟架按原大复原，六十五件青铜钟分列悬挂，重现战国礼乐场景。
+   - 第 6 页：钟架通长七百四十八厘米，高二百七十三厘米，曲尺转角处长三百三十五厘米，可拆装搬运。
+6. 抹掉 A01 旧正文的做法也换了：先按"某行明显比本行 90 分位暗"检出文字行，再用该行
+   上下干净背景做**竖向插值**整带填掉 —— 既不残留半透明残影，也不留亮斑。
+7. 六页全部重新生成并写入 `F:\`（MD5 与 `SD卡上内容\` 一致）；生成器合并为
+   `tools/make_a_zone_pages.py`（A01~A04 改标题栏/进度条 + A05/A06 重建，一条命令跑完）。
+
+
+### 四十三、2026-10-25 v33 底栏页码恢复 n / m + **N 倍图"行跳过"提速**
+
+**1) 底栏页码**（v32 已做，这次一并装进去）：显示缩放图时不再把底栏换成 `1 / N`，
+恢复成普通 `n / m`（A05 → `5 / 6`，A06 → `6 / 6`，和 B01 的 `1 / 4` 一个口径）。
+
+**2) 行跳过（这次的主要工作）**
+N 倍图原来要把整个文件读完（A06 8.29 MB ≈ 8 s），但竖直方向只用到 1/N 的行。现在
+`bmp_read` 每读完一条需要的源行，就把 SD 读地址**直接跳到下一条需要的行**：
+
+- 新增 `row_bytes = W*3`、`row_step = N*W*3`、`next_row_off`（下一行的文件字节偏移）、
+  `skip_until`（该偏移之前收到的字节不算像素）、`row_stop`（本条行的结束偏移，
+  之后的字节丢弃，保证不会把行尾剩余字节当成下一行开头）；
+- 行结束时置 `jump_pending`，在**下一个扇区边界**把 `sd_sec_read_addr` 设为
+  `load_sector + (next_row_off>>9)`，同时把 `bmp_len_cnt` 装载成该扇区基址（`len_jump` 单拍），
+  这样字节相位与行首严格对齐；
+- 只有目标扇区比当前扇区靠后（`jump_target > sd_sec_read_addr`）才跳，否则顺序读下去即可 ——
+  所以 **N=1 的 640×480 图完全走原来的顺序路径，行为不变**。
+
+数据量：A06 从 16200 扇区降到 480 行 ×12 扇区 = 5760（**约 2.8×**），
+A05 从 7200 降到 480×8 = 3840（**约 1.9×**）。按实测 ~0.49 ms/扇区估算：
+A06 8 s → **≈2.8 s**，A05 3.5 s → **≈1.9 s**。
+
+**门禁**
+
+| 项 | v32（3575B1B3） | **v33（693BA897）** |
+|---|---|---|
+| mslices | 4383 | **4464** |
+| LUT / REG | — | **16525 / 6164** |
+| BRAM / DSP | 62 / 20 | **62 / 20** |
+| Setup / Hold | +479 / +21 ps | **+689 / +25 ps**（seed 4） |
+
+bit：`bitstream/HDMI2_HDMI14_Player_v33.bit`（MD5 `693BA897D6DA6B7A0D920FB5BE4E976F`）。
+**仍未固化**：`list_cable` 依然返回空（下载器 USB 没插），插回后跑 `project\dsh_flash.tcl`。
+
+
+### 四十四、2026-10-25 v34 修"大图装载被看门狗掐断" + WAV 优先（已固化）
+
+**现象**：A05 要 20 s、A06 近 1 分钟还经常切不出来；快速连按进"曾侯乙"会卡住、音乐也停。
+
+**根因 1：8 秒看门狗是"从装载开始硬算 8 秒"**，而 N 倍图单块读很慢（A05 3.7 MB ≈ 7200 扇区、
+A06 8.3 MB ≈ 16200 扇区），8 秒必被 `load_abort` 掐断 ⇒ 页面出不来，`stuck_seen` 还留在数码管码 5 上。
+→ 改成 **"8 秒没有任何进展才放弃"**：每收到一个镜像扇区（`sd_sec_read_end`）就把 `load_wdt` 清零。
+真挂死仍然 8 s 退出，正常慢读不再误杀。
+
+**根因 2：镜像扇区请求把 WAV 饿死**。`arb_req` 原来是"镜像优先"，而 `bmp_read` 的
+`sd_sec_read` 在装载期间几乎一直是高电平 ⇒ 大文件装载时 WAV 拿不到总线 ⇒ 音频断掉/不播。
+→ 改成 **WAV 优先**（`arb_req`/`arb_lba`/`wav_grant` 三处对调），并把 `wav_sector_busy`
+里的 `img_req` 去掉，让 WAV 随时能插队；镜像装载只被推迟约 7%（WAV 只要 ~100 KB/s）。
+
+**根因 3：装载期间 `sd_sec_read` 常驻有效**，配合"快速连按进分区"容易和 `zscan` 抢总线；
+v34 之后 WAV/zscan 都有优先权，镜像读只在空档里推进，不会再互相卡死。
+
+**门禁**
+
+| 项 | v33 | **v34（8D0E22A3）** |
+|---|---|---|
+| mslices | 4464 | **4502 / 4900** |
+| BRAM / DSP | 62 / 20 | **62 / 20** |
+| Setup / Hold | +689 / +25 ps | **+574 / +25 ps**，0 FEPS |
+
+bit：`bitstream/HDMI2_HDMI14_Player_v34.bit`（MD5 `8D0E22A3AAA75A7BA4249BD5076B29DE`），
+已 `program_spi` 固化（64.1 s，verify + program 均通过）。
+
+**还剩下的瓶颈**：SD 单块读（CMD17）每个扇区约 1~3 ms 的卡内延迟，远大于 512 B 的传输时间，
+所以"读得少"只能线性改善，真正的数量级提升要把读命令换成 **CMD18 多块连续读**
+（一次命令连续读 N 个扇区，只需付一次延迟）。这是下一步可选项。
+
+
+### 四十五、2026-10-25 v35 修行跳过的"行尾窗口"——A05/A06 花屏（已固化）
+
+**现象**：v34 上第 5、6 页画面变成横向拉丝/错行的花屏（OSD 的 `5 / 6` 正常）。
+
+**根因**：`bmp_read` 行跳过时，我在"一行读完"那一拍就把 `row_stop` 更新成**下一条要读的行**的结束偏移，
+于是本行末尾到下一行开头之间的字节仍然满足 `bmp_len_cnt < row_stop` ⇒ 被当成像素继续消费
+⇒ 每行都会多吞一段字节、像素计数错位 ⇒ 整幅图横向拉丝。
+
+**修法**（同一处）
+- 行读完：N>1 时**立刻关窗**（`row_stop <= next_row_off`，即"此刻之后一律丢弃"），
+  真正跳到新行那一拍（`len_jump`）再 `skip_until <= next_row_off; row_stop <= next_row_off + row_bytes` 开新窗；
+  N=1 时窗口直接接到下一行（顺序读不能断）；
+- **最后一行之后彻底关窗**：若 `next_row_off + row_step >= file_len`，`row_stop <= 0`，
+  避免文件尾部剩余字节再被写成像素（仿真里 N=2 多写 32 个、N=3 多写 22 个，就是这样来的）。
+
+**验证**：按 v35 的逐字节语义写了 `tools/sim_rowskip.py` 仿真（合成文件 + 真实扇区粒度 + jump），
+N=1/2/3 三种情况的像素写入次数**都恰好等于 640×480=307200**（修前 N=2 是 307232、N=3 是 307222）。
+
+**门禁**
+
+| 项 | v34 | **v35（FD7C0356）** |
+|---|---|---|
+| mslices | 4502 | **4464 / 4900** |
+| BRAM / DSP | 62 / 20 | **62 / 20** |
+| Setup / Hold | +574 / +25 ps | **+27 / +21 ps**，0 FEPS（偏薄，需要再宽裕可换 seed 重出） |
+
+bit：`bitstream/HDMI2_HDMI14_Player_v35.bit`（MD5 `FD7C0356C1AF239EC0453E17194EADF7`），
+已 `program_spi` 固化（64.0 s + verify 通过）。
+
+
+### 四十六、2026-10-25 v36 图片按"文件名编号"落位——修第 5/6 页对调（已固化）
+
+**现象**：A05 那张（钟厅）显示"第 5 页"，但底栏 OSD 是 `6 / 6`；A06（钟架尺寸）反过来。图对、页码错。
+
+**根因**：`fat32_zone_scan` 是按**目录里的出现顺序**把图片塞进槽位（`sec_mem[zone*10 + cnt]`），
+而目录顺序不一定等于文件名顺序（复制/覆盖文件后 4 个槽位之前是对的，A05/A06 恰好反了）。
+OSD 显示的 `n / m` 来自**槽位号**，图片里印的"第 n 页"来自**文件名**，两者就对不上了。
+
+**修法**：落位改用文件名里的两位数字 —— `dnum_slot = dnum - 1`，A05 永远进槽 4、A06 进槽 5，
+与目录顺序无关；`zone_count` 改成"已见最大编号"，并新增每区 10 位的"该槽位有图"位图
+（`pm0..pm3`），`rd_valid` 同时检查"编号在范围内"和"该槽确实有图"，这样缺号（比如删了 A03）
+也不会读出垃圾扇区。
+
+**门禁**
+
+| 项 | v35 | **v36（F98D58D7）** |
+|---|---|---|
+| mslices | 4464 | **4538 / 4900（92.6%）** |
+| LUT / REG | 16525 / 6164 | **16592 / 6171** |
+| BRAM / DSP | 62 / 20 | **62 / 20** |
+| Setup / Hold | +27 / +21 ps | **+479 / +25 ps**，0 FEPS |
+
+bit：`bitstream/HDMI2_HDMI14_Player_v36.bit`（MD5 `F98D58D73BE9E4E22D76D8F66616371F`），
+已 `program_spi` 固化（64.0 s + verify 通过）。
+
+
+### 四十七、2026-10-26 v37 主字库合并（BRAM 62 → 54，已固化）
+
+**做法**：主菜单页与图片页**互斥**（`img_under` 在菜单页已经是页面底色、菜单层优先），所以
+`u_menu_font` 和 `u_info_bands.u_font_rom` 可以合成**一块**主字库：
+- `info_bands` 去掉内部 `font_rom`，改成 `fnt_addr_o`（送出 `rom_addr_q`）＋ `fnt_dout_i`（收回字模行）；
+- 顶层一个 `u_shared_font`，地址 = `menu_font_sel ? fnt_addr_menu : fnt_addr_info`，
+  `menu_font_sel = menu_active | dir_active`；数据同时送给菜单和 info_bands（被选中的那层数据正确，另一层数据无效但其输出被上层屏蔽）。
+
+**其它试过但没用的**：把 `font_rom` 的声明深度从 16384 收窄没用 —— 字库实际用到
+0x01..0x100（最大行号 4111，65.8 kbit），TD 已经自动裁到 8 块 BRAM/实例（89% 打包率），
+三个实例里只有“合并”这条路能省。
+
+**门禁**
+
+| 项 | v36 | **v37（F62653FD）** |
+|---|---|---|
+| mslices | 4538 | **4557 / 4900** |
+| LUT / REG | 16592 / 6171 | **16811 / 6171** |
+| **BRAM** | 62 / 64 | **54 / 64（省 8 块）** |
+| DSP | 20 / 29 | 20 / 29 |
+| Setup / Hold | +479 / +25 ps | **+159 / +25 ps**，0 FEPS（偏薄） |
+
+bit：`bitstream/HDMI2_HDMI14_Player_v37.bit`（MD5 `F62653FD314C9897A37B95156B61DA61`），已固化。
+
+**关于"三号 = 系统页"的字库盘点**：主字库里**没有** 源/图/片/缩/放/检 这些汉字
+（它们只存在于 BMP 图里，是 PIL 画的），所以中文自检页做不出来；
+但主字库 **ASCII 0x21..0x7E 是齐的**（A-Z、a-z、0-9、符号），
+所以系统页改用英文标签 + 数字，例如 `SD OK / BMP 6/6 / WAV OK / SRC 1280X960 / DST 640X480 1/2 / TIME 12:48:05`。
+
+
+### 四十八、2026-10-26 v38 修 v37 的回归：主字库文字整层丢失（已固化）
+
+**现象**：v37 之后，顶栏（手动 / 标题 / 时钟）整条没了，滚动字幕里主字库的那些字也不见了
+（扩展字库的字还在）。
+
+**根因**（我自己的锅）：改共享字库时写了
+```verilog
+wire [15:0] rom_row_bits_main = fnt_dout_i;   // ← 这一句又声明了一次同名 wire
+```
+而 734 行本来就有 `wire [15:0] rom_row_bits_main;` ⇒ 真正被下级使用的那根网**没有被驱动**，
+`rom_row_bits = ext_d ? ext ? main` 里 main 恒为 0 ⇒ **主字库字形全丢**，只剩扩展字库的汉字。
+改成 `assign rom_row_bits_main = fnt_dout_i;` 即可。
+
+**门禁**
+
+| 项 | v37 | **v38（CF872BF1）** |
+|---|---|---|
+| mslices | 4557 | **4560 / 4900** |
+| LUT | 16811 | **16833** |
+| BRAM | 54 | **54（分享仍在，省 8 块照旧）** |
+| Setup / Hold | +159 / +25 ps | **+206 / +21 ps**，0 FEPS |
+
+bit：`bitstream/HDMI2_HDMI14_Player_v38.bit`（MD5 `CF872BF183750801D1D421872AD744DF`），已固化。
+
+**字库余量核算（为 A 做准备）**：`font_rom` 是 8 块 BRAM = 73 728 bit，当前只用到 65 792 bit
+（0x01..0x100），**还剩约 7 936 bit = 496 行 = 31 个汉字槽位** ⇒ 扩字库**不花 BRAM**，
+只要把新字放进空槽（0x10..0x20 这段 17 个槽是空的）并重新生成 `font_rom.hex`。
+
+
+### 四十九、2026-10-26 v39 「系 统」信息页（三号菜单项）+ 字库扩 10 个汉字（已固化）
+
+**1) 字库扩字（0 BRAM）**
+主字库 `font_rom` 是 8 块 BRAM = 73 728 bit，原来只用到 65 792 bit（0x01..0x100），
+空槽 0x10..0x20 共 17 个。这次按 **simsun 16x16**（与老字模同一字体，先用「系」逐行比对验证 16/16 一致）
+把 10 个新字写进空槽：`0x10 源 0x11 图 0x12 片 0x13 缩 0x14 放 0x15 频 0x16 检 0x17 第 0x18 页 0x19 共`。
+改动前逐行断言这些行必须原来是 `0000`，改完 diff：**只动了 0x10..0x19 这 160 行**，其余字模一字未动。
+
+**2) 新模块 `rtl/sysinfo_panel.v`（135 LUT + 120 ripple，0 BRAM）**
+- 与 `settings_panel` **共用**同一块 `u_set_font`（两者永不同屏）=> 0 BRAM；
+- 版面：居中卡片 + 标题「系 统」+ 6 行「2 字标签 + 值」；
+- 值随当前页动态：`源图 = 640N×480N`、`缩放 = 1/N + 640X480`、`图片 = 页码/总数`、
+  `音量 = n% 或 OFF`、`时间 = HH:MM:SS`、`系统 = SD OK / SD ERR`（所以翻到第 6 页时自然显示 1920×1440、1/3）；
+- 像素坐标打一拍、地址组合给出、ROM 再一拍，几何和字形共用同一份延迟坐标 => 卡框与文字对齐。
+
+**3) 菜单**：第三项文字 `轮播` → **`系 统`**（0x90/0x91，现有字模），选中即打开该页；Enter / Back 关闭。
+
+**门禁**
+
+| 项 | v38 | **v39（9C6B1249）** |
+|---|---|---|
+| mslices | 4560 | **4627 / 4900（94.4%）** |
+| LUT / REG | 16 833 / 6171 | **17 067 / 6181** |
+| BRAM | 54 | **54（不变）** |
+| Setup / Hold | +206 / +21 ps | **+947 / +25 ps**，0 FEPS |
+
+bit：`bitstream/HDMI2_HDMI14_Player_v39.bit`（MD5 `9C6B124925F329FEC09553C8F0E0C7D1`），已固化。
+
+
+### 五十、2026-10-27 v69 「系统简介」四页（A/D 左右翻页，已固化 FLASH）
+
+**1) 主菜单改名**
+第三项「系统」→「**系统简介**」，4 个字正好占满 `main_menu.lbl_char` 的 4 个字格：
+系 0x90 / 统 0x91（原有）+ 简 0x1D / 介 0x1E（`tools/add_intro_title_glyphs.py` 写进主字库空槽，
+主字库仍是 4096 深 = 8 块 BRAM，不增加资源）。
+
+**2) 系统页整页重写（`rtl/sysinfo_panel.v`）**
+四页图文，A/D 左右翻页（到头夹住不循环）、Back 退出；打开期间 W/S/Enter 被 `menu_ctrl` 冻结。
+版面：卡片 80..560 x 78..412；标题「系统简介」16 px 居中 (288,92)；分隔线 y=120；
+页标题 2 倍 32 px (96,168)；正文 (96,224) 起、行距 40、3 行、**每行 56 格 x 8 px**；
+底栏 `A/D:SWITCH  BACK:EXIT` (96,372)；页码 `n/4` (520,372)。
+- 关键改动：正文按 **8 px 一格**排，汉字占 2 格（16 px），ASCII 占 1 格并取主字库
+  的 8 px 字心（`fnt_dout[11-xoff]`）。v67 是"一格 16 px 全给 ASCII"，数字之间全是空隙、
+  一行只能放 28 字。
+- 文本改成 **ROM 查表**：`rtl/sysintro_text.hex`（1024 x 9 bit，1 块 BRAM），
+  `addr={page[1:0],line[1:0],slot[5:0]}`；码值 `0x000..0x07F`=ASCII、
+  `0x080|n`=汉字左半、`0x180|n`=汉字右半。v67 那个 9 bit 扁平 `case`（几百 LUT）整段删掉。
+- 小字库 `rtl/font_rom_sys.hex` 扩到 128 槽 x 16 行（4 块 BRAM），114 个字，
+  微软雅黑 16 px、**字面位置固定不做包围盒居中**（否则「、。，」会飘到格子中间）。
+- 流水仍是 2 拍（文本 ROM 输出 + 坐标寄存 → 字模 ROM 输出），与设置面板一致。
+- **坑**：底栏/页码所在列的文本 ROM 地址会落到正文行上，若只按 `code[7]` 选汉字分支，
+  底栏会画出正文的汉字；RTL 用 `cjk_s1 = code_s1[7] & ~ft_s1` 挡掉。
+
+**3) 自检脚本（新）**
+`tools/check_sysintro_render.py` 把 RTL 的 taddr/code/gx/row/bit 规则在 Python 里重放，
+与生成器的理想版面逐像素比对；**当前 4 页 0 差异**。这类串位/半字错误综合不会报，
+必须靠它。第一次跑就抓出两处：空槽误取小字库怪字、右半码 bit7 编错。
+
+**4) 资源/时序**
+
+| 项 | v67 | **v69** |
+|---|---|---|
+| mslices | 4620 | **4538 / 4900（92.6%）** |
+| LUT / REG | 17 427 / 6 363 | **17 113 / 6 376**（综合 16 766 / 6 206） |
+| BRAM | 56 | **59（+3：小字库 4 - 旧 2 + 文本 1）** |
+| DSP | 20 | 20 |
+| Setup / Hold | +499 / +25 ps | **+737 / +25 ps**，0 FEPS，place seed 2 |
+
+bit：`bitstream/HDMI2_HDMI14_Player_v69.bit`（675,020 B，MD5 `42076F1BECCB58E83C7A985369737046`），
+已 `program_spi` 固化（64.8 s + verify/program 通过）。
+
+**seed 实测（同一份 RTL，place seed 换一个就变一次 Setup）**：1 +262 / 2 **+415** / 3 −105（1 FEPS）/
+4 +125 / 5 +266 / 6 +128 / 7 +305 ps，最终定 **seed 2**（`phy_1/HDMI1.4b_Transmitter_v1.0.tcl` 第 172 行）。
+
+**5) 改动文件**
+`rtl/sysinfo_panel.v`（重写）、`rtl/main_menu.v`（标签）、`rtl/top_tf_hdmi_audio.v`
+（`sys_sel`→`sys_page[1:0]`、A/D 翻页、`.page` 端口）、`rtl/font_rom.hex`（+简/介）、
+`rtl/font_rom_sys.hex`、`rtl/sysintro_text.hex`（新）、
+`tools/make_sysintro_page.py`（新）、`tools/check_sysintro_render.py`（新）、
+`tools/add_intro_title_glyphs.py`（新）、`project/dsh_flash.tcl`（指向 v69）、
+`docs/v69_系统简介四页.md`（新）、README 第 1/2.13/4/7/8/9/10 节。
+
+**4b) 上板后补修：标题/页标题"重影"（2026-10-27 当天）**
+
+现象：主菜单第三项文字正常，但系统简介页的「系统简介」「四个展区」两处金色文字**重影**
+（一个字像被画了两份/四份叠在一起）。
+
+根因：**一行 Verilog 里混着写不同位宽的 wire**：
+
+```verilog
+wire [1:0] tcol = tx[5:4], tgx3 = tx[3:0];   // tgx3 被一起声明成 2 bit！
+wire [2:0] hcol = hx[8:5], hgx3 = hx[4:1];   // hgx3 被一起声明成 3 bit！
+```
+
+于是标题的列号只剩 `tx[1:0]`（0..3 循环）、页标题只剩 3 bit（0..7 循环），
+同一个字的点阵在 16/32 px 宽里被重复铺了 4 份 / 2 份 —— 就是屏上的"重影"。
+正文用的是 `{rom_q[8], xoff_s1}`，没走这两根线，所以正文正常。
+
+修法：拆成独立声明（`wire [3:0] tgx3 = tx[3:0];` 等）。
+顺带在 `tools/check_sysintro_render.py` 里加了一条**静态 lint**：
+再出现"一条声明写多个名字且只有第一个带位宽"就直接 FAIL —— 综合/布线/像素比对
+都发现不了这类错误，只能靠它。修好后 Setup 余量反而从 +415 涨到 **+737 ps**
+（被截断的逻辑还原后，工具少搬了一堆重复的 mux 网络）。
+
+**4c) 参数行 BRAM 改成 59**（实际占用），并重生成 `sysintro_text.hex`。
+
+**4d) 最终数据（覆盖上面 4) 的表）**
+
+| 项 | v67 | **v69（最终）** |
+|---|---|---|
+| mslices | 4620 | **4538 / 4900（92.6%）** |
+| LUT / REG | 17 427 / 6 363 | **17 113 / 6 376**（综合 16 766 / 6 206） |
+| BRAM | 56 | **59** |
+| DSP | 20 | 20 |
+| Setup / Hold | +499 / +25 ps | **+737 / +25 ps**，0 FEPS，place seed 2 |
+
+bit：`bitstream/HDMI2_HDMI14_Player_v69.bit`（675,020 B，MD5 `42076F1BECCB58E83C7A985369737046`），
+已 `program_spi` 固化（64.8 s + verify/program 通过，断电重上电生效）。
+
+
+### 五十一、2026-10-27 v70 切图提速（淡变 0.37→0.13 s + 淡出与装载并行）+ 最左白边（方案 B）
+
+**1) 淡变缩短**
+`A_STEP` 3→8：31/8 → 4 帧出、4 帧进 = 8 帧 ≈ 0.13 s（原来 11+11 帧 = 0.37 s）。
+按用户实测"一页 0.8 s"里，淡变原本占了近一半。
+
+**2) 淡出与装载并行**
+原来：装载完 → 淡出 → 换 buffer → 淡入（淡出的 0.18 s 白白串在后面）。
+现在：`img_load_active`（sd_card_bmp，50 MHz 域）2FF 同步进 video_clk 取上升沿，
+**一发起装载就开始淡出**；淡到全底色后停在 T_OUT 等 `idx_settled && idx_seen != disp_show_idx`，
+新图一到就换 buffer 并淡入。等不到（装载失败/看门狗）最多等 600 帧（10 s）再把旧图亮回来。
+装载期间顶栏时间/标题和底部滚动字幕照常，画面是"载入中"的样子，不会像死机。
+
+**3) 最左白边（方案 B）**
+成因：OSD 链路（info_bands→菜单→目录→设置→系统页）比 de 晚 D 拍，每行最前 D 个像素
+输出的是"上一行最后几个像素"；v54 把消隐清零改成保持上一拍，这个保持值正好是上一行
+右端的亮色 —— 所以 v48~v55 怎么补都只是把线变短/变白。
+做法：**不改 de、不整帧移位**，用"本行 x=16 处的真实像素"填最前 `EDGE_K=6` 个像素
+（所有页面左边缘都是平色，看不出接缝）。
+
+**4) 资源/时序**
+
+| 项 | v69 | **v70** |
+|---|---|---|
+| mslices | 4538 | **4553 / 4900（92.9%）** |
+| LUT / REG | 17 113 / 6 376 | **17 269 / 6 400** |
+| BRAM | 59 | 59 |
+| Setup / Hold | +737 / +25 ps | **+667 / +25 ps**，0 FEPS，seed 2 |
+
+bit：`bitstream/HDMI2_HDMI14_Player_v70.bit`（675,020 B，MD5 `FA2237D741732997770C67B3EB59B079`），
+已 `program_spi` 固化（65.4 s）。回退 v69：`HDMI2_HDMI14_Player_v69.bit`。
+
+
+### 五十二、2026-10-27 v71 撤销白边回填、恢复 0.37 s 淡变（只保留"淡出与装载并行"）
+
+**上板反馈（决定性）**
+1. 白边回填在**目录页**出现色块、在**图片页**原来白线的位置出现错位；
+2. 0.13 s 淡变太快，"动画看不明显"；
+3. 内部 1 kHz 测试音（v70t）**仍然滋滋** —— 音频问题不在 SD/WAV 数据链。
+
+**改动**
+- 删掉 `vout_patched` 回填逻辑，`vout_data` 直接接 `vout_data_sys`。
+  结论写进注释：各页面 OSD 流水深度不同（图片页 ≈2 拍、菜单/目录页 ≈4 拍），
+  固定回填 6 个像素必然多补/少补；而且 x=16 在顶栏处不是背景色。
+  正解是把 OSD 像素计数按页面提前 D 拍启动（**未做**，需要单独验证）。
+- `A_STEP` 3→8 回退成 3（11+11 帧 ≈ 0.37 s）。
+- 保留"淡出与装载并行"：`img_load_active` 上升沿即开始变暗，新图到位再亮回来。
+- 大图跳行读（v33 就有）保持不变。
+
+**资源/时序（place seed 扫描：1 +236、2 −64、3 −175、4 −361、5 +293、6 +572、7 +221 ps）**
+
+| 项 | v70 | **v71** |
+|---|---|---|
+| mslices | 4553 | **4634 / 4900（94.6%）** |
+| BRAM | 59 | 59 |
+| Setup / Hold | +667 / +25 ps | **+572 / +36 ps**，0 FEPS，**seed 6** |
+
+bit：`bitstream/HDMI2_HDMI14_Player_v71.bit`（675,020 B，MD5 `F0EF11FAE171E341ADEBD9473B36EB01`），
+已 `program_spi` 固化（65.1 s）。`phy_1` 的 place seed 已留在 6。
+
+**音频（新结论）**
+内部正弦测试音同样滋滋 → 与 WAV/SD 无关。对照安路官方 `APUG092_HDMI1.4b_Transmitter_V1.0`
+和官方例程 `lab_ex5_i2s`：核参数（800/525/VIC=1/48K）、像素时钟 25.000 MHz、
+`I_audio_valid` 单拍脉冲、24 bit 数据、ACR（N=6144、CTS 由像素时钟计数）全部一致。
+剩下的差异只有：①样例在 valid=0 时把音频数据清零（我们保持住）；
+②样例的节拍来自 I2S（12.288 MHz 域）恢复，我们来自 25 MHz 小数分频。
+两个差异都做成实验位后可以 A/B。
+
+
+### 五十三、2026-10-27 v72 任意分辨率缩放（W<=2560 / H<=1920 全支持）+ 白边按页面分级
+
+**1) `bmp_read.v`：任意分辨率（扩展要求 3 从"三档精确匹配"升级到"任意 W x H"）**
+- N = max(ceil(W/640), ceil(H/480))，取值 1..4；W/H 用三级比较得到，无除法。
+- 按 N 做整数抽取（每 N 个像素取 1 个、每 N 行读 1 行，行跳过沿用 v33 的 jump 机制）。
+- **补黑边**：每读完一条源行补 `640-emit_cnt` 个黑像素，文件读完再补 `(480-row_cnt)*640` 个，
+  新增 `ST_FLUSH` 状态把一帧凑满 307200 像素（以前少于这个数会等不到写完成 → 看门狗 8 s 超时）。
+  补像素每 4 拍发一个，避免冲爆 SDRAM 写 FIFO。
+- 约束：W<=2560、H<=1920；N=1 时要求 W==640（更小的图右边黑边没时间在行内补，会串行）。
+- 代价：+284 LUT / +19 REG，**0 BRAM**。原有 640x480 / 1280x960 / 1920x1440 三条路径行为不变。
+
+**2) 最左白边：按页面分级补正**
+v70 统一补 6 个像素会"多补"（图片页 D≈2、菜单页 D≈4），表现为错位/色块。
+现在 `edge_k` 按页面给：图片页 2、菜单页 4、目录/设置/系统页 0（按要求不补）。
+参考值仍取本行 x=16（图片页/菜单页那一列是背景色）。
+
+**3) 测试素材**
+`tools/make_scale_test_bmps.py` 生成 6 张测试图到 `SD卡上内容/`：
+A07 1280x720、A08 1920x1080、A09 1024x768、A10 800x600、B05 1600x1200、B06 2560x1440，
+每张带四角色块（看裁切）、外框、64 px 网格（看抽取）、中间三行字（源/N/目标）。
+说明见 `SD卡上内容/缩放测试说明.txt`。
+
+**4) 资源/时序**
+
+| 项 | v71 | **v72** |
+|---|---|---|
+| mslices | 4634 | **4681 / 4900（95.5%）** |
+| 综合 LUT / REG | 16 976 / 6 219 | **17 296 / 6 316** |
+| BRAM | 59 | 59 |
+| Setup / Hold | +572 / +36 ps | **+502 / +25 ps**，0 FEPS |
+
+bit：`bitstream/HDMI2_HDMI14_Player_v73.bit`（675,020 B，MD5 `E143BC16AABBC7190FA5F884BC4E168E`），
+已 `program_spi` 固化（64.6 s）。
+
+（v72 中间版用 19 bit `pad_q` 计数器补黑，9 个 seed 全部 Setup −84 ps / 1 FEPS；
+改成"每行写满 640"的计数器后 mslices 反而降了、Setup 回到 +502 ps。）注意 mslices 已到 95%，后续再加逻辑要先腾资源。
+
+
+### 五十四、2026-10-27 v74 修掉"任意分辨率"每行多插一行黑的 bug；白边补像素方案彻底撤销
+
+**上板反馈**：①白边不仅没补上，还出现"上下错位"；②任意分辨率没生效（整屏横向撕裂，A05 5/10 那张也花了）。
+
+**1) 白边：补像素方案彻底撤销**
+v73 的"按页面补 2/4 个像素"补出来的是**上一行同列**的内容 —— 人眼对竖直线里的
+上下错位极其敏感，所以看起来更糟。结论写进 RTL 注释：输出级回填这条路走不通；
+正解是让 OSD 的像素计数按页面提前 D 拍启动（要动 de/OSD 时序，必须单独出包验证）。
+
+**2) 任意分辨率：找到并修掉"每行多插一整行黑"**
+v73 里"真像素满 640"和"源行结束"是两个独立条件，各自都会把 row_cnt+1：
+1280 宽的图每行最后一个源像素是被抽掉的，于是两个条件各触发一次 —— 每行凭空多写
+640 个黑像素，整屏横向撕裂（A05/A06 也一起坏）。
+改法：
+- 每行只用一个 `pad_left` 记"还差几个黑像素"，补到 0 才 `row_cnt+1`；
+- 真像素正好写满 640（N=1 的图）在 emit 那一拍直接结行；
+- 源行结束但没写满（out_w<640）才算 `pad_left = 640 - emit_cnt`；
+- 新增 `rd_pending`：本行右边黑边没补完之前**不许读下一个扇区**（否则补的像素会
+  插到下一行里）；文件读完用 `file_done` 停在"补行"状态，补齐后进 `ST_FLUSH` 补到 480 行。
+
+逐尺寸核对过（每行写出数 = ceil(W/N)，行数 = ceil(H/N)）：
+1280x960→640x480、1920x1440→640x480、1280x720→640x360+120、1024x768→512x384+128/96、
+800x600→400x300+240/180、1600x1200→534x400+106/80、2560x1440→640x360+120、640x480 原样。
+
+**3) 系统简介第 3 页文案改"任意分辨率"**
+"源图分辨率不限，最大2560×1920，装载期按 N 行/N 列抽取（N=ceil(W/640)，1~4）……"，
+`make_sysintro_page.py` + `check_sysintro_render.py` 重跑，4 页 0 差异。
+
+**4) 资源/时序**
+
+| 项 | v73 | **v74** |
+|---|---|---|
+| mslices | 4681 | **4597 / 4900（93.8%）** |
+| 综合 LUT / REG | 17 296 / 6 316 | **17 072 / 6 292** |
+| BRAM | 59 | 59 |
+| Setup / Hold | +502 / +25 ps | **+129 / +25 ps**，0 FEPS |
+
+bit：`bitstream/HDMI2_HDMI14_Player_v74.bit`（675,020 B，MD5 `FC9AD32D1E18CC432EB16A5F95336B08`），
+已 `program_spi` 固化（65.0 s）。
+
+> 注：`phy_1` 里的 `set_param place seed N` 现在实测**不起作用**（日志里 `enable_seed` 一直是 off，
+> 7 个 seed 的 mslices/时序完全一样）；以前"换 seed 能救时序"的结论要打折扣。
+
+
+### 五十五、2026-10-27 v75 修"黑边跑到屏幕上方"+ 主界面白边回填
+
+**上板反馈**：A05/A06（第 5、6 页）正常了；A07/A08 等测试图能显示、但**上方多出一条黑边**。
+
+**1) 黑边为什么跑到上面：BMP 是自底向上存的**
+BMP 文件里第一行像素是画面**最下面**一行。装载是按文件顺序写帧缓存的，所以"文件末尾补黑"
+其实补到了屏幕**上方**（v74 上板就是图上方一条黑）。
+改法：新增 `ST_PADTOP` 状态 —— 装载前先算 `out_h = ceil(H/N)`（减法循环，每张图一次），
+先把 `(480-out_h)` 行黑写出去（这就是画面下方黑边），再读像素数据。
+原先的 `ST_FLUSH` 保留做兜底（文件提前结束才用得上）。
+
+**2) 白边：只保留主界面的回填**
+用户确认 v70 的 6 px 回填在**主界面**上"只差一点竖向错位"，可以接受；
+图片页的错位/目录页的色块不能用，所以 `menu_only = menu_active && !dir_active && !settings_active && !sys_active`
+时才回填。图片页维持原样（一条细线）。
+
+**3) 资源/时序**
+
+| 项 | v74 | **v75** |
+|---|---|---|
+| mslices | 4597 | **4704 / 4900（96.0%）** |
+| 综合 LUT / REG | 17 072 / 6 292 | **17 452 / 6 360** |
+| Setup / Hold | +129 / +25 ps | **+270 / +26 ps**，0 FEPS |
+
+bit：`bitstream/HDMI2_HDMI14_Player_v75.bit`（675,020 B，MD5 `6CFA0B2E73B70165A891F2C3C35571D2`），
+已 `program_spi` 固化（64.2 s）。**mslices 已到 96%，下次加功能前必须先腾资源。**
+
+### 五十六、2026-10-27 v76 修 v75 的“点图卡死”（ST_PADTOP 计数器被每拍清零）+ 撤销全部白边回填
+
+**上板现象**：点后面几页概率性卡死（图像不刷新、页码却还在走），后面的图根本看不到。
+
+**根因**：v75 加的 `ST_PADTOP` 里补黑行用的是 `pad_left / row_cnt`，而计数器 always 块的条件还是
+`state != ST_LOAD_DATA && state != ST_FLUSH` —— ST_PADTOP 落进了“复位”分支，**每拍把
+emit_cnt / pad_left / row_cnt 清 0**，于是 `pad_left` 永远是 0、`row_cnt` 永远到不了 `pad_rows`，
+补行永不结束；要等 `sd_card_bmp` 的 8 s 看门狗才 abort，表现就是“点图卡死”。
+修法：把 `ST_PADTOP` 加进“正常计数”的条件里（一行）。
+
+**同时撤销全部白边回填**：主界面也撤（用户实测没用）。三轮回填（v70 统一 6 px / v73 按页面 2~4 px /
+v75 只补主界面）都只能在“多补一个像素”和“补的列来自上一行”之间取舍。要根治只能改 de/OSD 时序。
+
+**资源/时序**
+
+| 项 | v75 | **v76** |
+|---|---|---|
+| mslices | 4704 | **4635 / 4900（94.6%）** |
+| 综合 LUT / REG | 17 452 / 6 360 | **17 149 / 6 324** |
+| Setup / Hold | +270 / +26 ps | **+655 / +21 ps**，0 FEPS |
+
+bit：`bitstream/HDMI2_HDMI14_Player_v76.bit`（675,020 B，MD5 `FE1CD1599BC1BE04A8F22C461E449C10`），
+已 `program_spi` 固化（64.9 s）。
+
+### 五十七、2026-10-27 v77 修“退出 ST_PADTOP 时 pad_left 残留 640”导致的整图下移/画面重复
+
+**上板现象**：目录页最左边出现红/绿色块；点进图片页直接卡死，画面左右各有一份内容（重复/错位）。
+
+**根因**：v76 把 `ST_PADTOP` 加进了计数分支后，补满 `pad_rows` 的那一拍，分支里的
+“起一行”逻辑又把 `pad_left` 置成 640 —— 下一拍已经回到 `ST_LOAD_DATA`，`pad_go` 立即成立，
+**在真实像素之前先吐了 640 个黑像素**：整幅图下移一行、行内 640 像素错位，看起来就是
+“画面重复 + 卡住不刷新”。
+修法：起新行前加 `row_cnt < pad_rows` 判断（PADTOP 补满了就不再起行）；`ST_FLUSH` 保持原样。
+
+**目录页最左的色块**：不是这次改出来的。它是“每行最前 1~2 像素取到上一行末尾”的老问题，
+以前底下垫的是浅色页面看不出，现在帧缓存里是测试图（四角有红/绿/蓝/黄大色块），
+穿透出来就成了色块。测试图删掉即恢复。
+
+**资源/时序**
+
+| 项 | v76 | **v77** |
+|---|---|---|
+| mslices | 4635 | **4679 / 4900（95.5%）** |
+| Setup / Hold | +655 / +21 ps | **+146 / +26 ps**，0 FEPS |
+
+bit：`bitstream/HDMI2_HDMI14_Player_v77.bit`（675,020 B，MD5 `CA36BEA7578B48AB9FC9AB47D6F48E57`），
+已 `program_spi` 固化（65.9 s）。
+
+### 五十八、2026-10-27 v78 稳定性优先：暂时关闭“任意分辨率”，回到三档精确匹配
+
+**背景**：任意分辨率这条路改了三轮（v72 每行多插一行黑、v75 补行卡死、v76 补行卡死+整图下移、
+v77 pad_left 残留），每次上板都有新问题。评委演示在即，“能稳定跑”比“功能更多”重要得多。
+
+**做法**：`bmp_read.v` 里加一个开关
+
+```verilog
+wire hdr_any_size = 1'b0;   // 改成 1'b1 即启用"任意分辨率"
+wire hdr_size_ok  = hdr_any_size ? (W<=2560 && H<=1920 && (N>=2 || W==640))
+                                 : (三档精确匹配);
+```
+
+`hdr_any_size=0` 时：扫描/装载只认 640x480、1280x960、1920x1440，`ST_PADTOP` 的 `pad_rows`
+恒为 0（直接穿过），每行也不补黑 —— **和 v71 的行为完全一致**，等于把新逻辑旁路掉了。
+A07~A10/B05/B06 这些测试图不会被扫到，展区仍是 6 / 4 页，测试图可以留在卡上。
+
+**下一步（暂不动演示版）**：给 `bmp_read` 写一个逐拍复刻的 Python 模型（输入 W/H/文件长度，
+输出写像素序列），把 8 种尺寸的行数/每行像素数/补黑位置全部对一遍，再回来开 `hdr_any_size`。
+
+**资源/时序**
+
+| 项 | v77 | **v78** |
+|---|---|---|
+| mslices | 4679 | **4614 / 4900（94.2%）** |
+| Setup / Hold | +146 / +26 ps | **+579 / +33 ps**，0 FEPS |
+
+bit：`bitstream/HDMI2_HDMI14_Player_v78.bit`（675,020 B，MD5 `0A64DC7722782BF0F31C808BEB74DECA`），
+已 `program_spi` 固化（64.9 s）。

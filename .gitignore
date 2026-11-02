@@ -1,0 +1,52 @@
+# TD / build outputs
+*.log
+*.dmp
+*.db
+*.qor
+*.timing
+*.area
+*.ts
+*.f
+*.bit
+!bitstream/*.bit
+*.bin
+*.sbit
+*.mcs
+
+# TD run directories
+src/td_project/**/Runs/
+**/_verify_*/
+**/syn_*/
+**/phy_*/
+work/
+
+# temporary / backups
+_tmp_*/
+*.bak
+*.bak_*
+*.bak-*
+*~
+*.zip
+*.7z
+*.rar
+
+# OS
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# local test media
+*.wav
+*.mp3
+*.BMP
+*.bmp
+*.jpg
+*.png
+
+# TD GUI 日志
+project/log/
+
+# test assets that ARE part of the project
+!SD卡上用于测试的内容/*.bmp
+!SD卡上用于测试的内容/*.wav
+!SD卡上用于测试的内容/*.txt

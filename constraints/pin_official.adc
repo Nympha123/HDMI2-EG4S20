@@ -1,0 +1,39 @@
+set_pin_assignment	{ HDMI_DDC_SCL }	{ LOCATION = P2; IOSTANDARD = LVCMOS33;DRIVESTRENGTH = 8; PULLTYPE = PULLUP;}
+set_pin_assignment	{ HDMI_DDC_SDA }	{ LOCATION = R2; IOSTANDARD = LVCMOS33;DRIVESTRENGTH = 8; PULLTYPE = PULLUP; }
+set_pin_assignment	{ HDMI_CLK_P }	{ LOCATION = C3; IOSTANDARD = LVDS33; PULLTYPE = NONE; }
+set_pin_assignment	{ HDMI_D0_P }	{ LOCATION = G5; IOSTANDARD = LVDS33; PULLTYPE = NONE; }
+set_pin_assignment	{ HDMI_D1_P }	{ LOCATION = F1; IOSTANDARD = LVDS33; PULLTYPE = NONE; }
+set_pin_assignment	{ HDMI_D2_P }	{ LOCATION = E1; IOSTANDARD = LVDS33; PULLTYPE = NONE; }
+set_pin_assignment	{ clk }	{ LOCATION = R7; IOSTANDARD = LVCMOS33; PULLTYPE = NONE; }
+set_pin_assignment	{ key1 }	{ LOCATION = B2; IOSTANDARD = LVCMOS33; PULLTYPE = NONE; }
+set_pin_assignment	{ key2 }	{ LOCATION = C1; IOSTANDARD = LVCMOS33; PULLTYPE = NONE; }
+set_pin_assignment	{ rst_n }	{ LOCATION = A2; IOSTANDARD = LVCMOS33; PULLTYPE = NONE; }
+set_pin_assignment	{ sd_dclk }	{ LOCATION = A14; IOSTANDARD = LVCMOS33; DRIVESTRENGTH = 8; PULLTYPE = NONE; }
+set_pin_assignment	{ sd_miso }	{ LOCATION = B14; IOSTANDARD = LVCMOS33; PULLTYPE = NONE; }
+set_pin_assignment	{ sd_mosi }	{ LOCATION = A13; IOSTANDARD = LVCMOS33; DRIVESTRENGTH = 8; PULLTYPE = NONE; }
+set_pin_assignment	{ sd_ncs }	{ LOCATION = A12; IOSTANDARD = LVCMOS33; DRIVESTRENGTH = 8; PULLTYPE = NONE; }
+set_pin_assignment	{ seg_data[0] }	{ LOCATION = C15; IOSTANDARD = LVCMOS33; DRIVESTRENGTH = 8; PULLTYPE = NONE; }
+set_pin_assignment	{ seg_data[1] }	{ LOCATION = C16; IOSTANDARD = LVCMOS33; DRIVESTRENGTH = 8; PULLTYPE = NONE; }
+set_pin_assignment	{ seg_data[2] }	{ LOCATION = B6; IOSTANDARD = LVCMOS33; DRIVESTRENGTH = 8; PULLTYPE = NONE; }
+set_pin_assignment	{ seg_data[3] }	{ LOCATION = A5; IOSTANDARD = LVCMOS33; DRIVESTRENGTH = 8; PULLTYPE = NONE; }
+set_pin_assignment	{ seg_data[4] }	{ LOCATION = B5; IOSTANDARD = LVCMOS33; DRIVESTRENGTH = 8; PULLTYPE = NONE; }
+set_pin_assignment	{ seg_data[5] }	{ LOCATION = A8; IOSTANDARD = LVCMOS33; DRIVESTRENGTH = 8; PULLTYPE = NONE; }
+set_pin_assignment	{ seg_data[6] }	{ LOCATION = A7; IOSTANDARD = LVCMOS33; DRIVESTRENGTH = 8; PULLTYPE = NONE; }
+set_pin_assignment	{ seg_data[7] }	{ LOCATION = A6; IOSTANDARD = LVCMOS33; DRIVESTRENGTH = 8; PULLTYPE = NONE; }
+set_pin_assignment	{ seg_sel[0] }	{ LOCATION = E12; IOSTANDARD = LVCMOS33; DRIVESTRENGTH = 8; PULLTYPE = NONE; }
+set_pin_assignment	{ seg_sel[1] }	{ LOCATION = E10; IOSTANDARD = LVCMOS33; DRIVESTRENGTH = 8; PULLTYPE = NONE; }
+set_pin_assignment	{ seg_sel[2] }	{ LOCATION = C13; IOSTANDARD = LVCMOS33; DRIVESTRENGTH = 8; PULLTYPE = NONE; }
+set_pin_assignment	{ seg_sel[3] }	{ LOCATION = F10; IOSTANDARD = LVCMOS33; DRIVESTRENGTH = 8; PULLTYPE = NONE; }
+set_pin_assignment	{ seg_sel[4] }	{ LOCATION = E11; IOSTANDARD = LVCMOS33; DRIVESTRENGTH = 8; PULLTYPE = NONE; }
+set_pin_assignment	{ seg_sel[5] }	{ LOCATION = D11; IOSTANDARD = LVCMOS33; DRIVESTRENGTH = 8; PULLTYPE = NONE; }
+set_pin_assignment	{ enc_s1 }	{ LOCATION = M15; IOSTANDARD = LVCMOS33; PULLTYPE = PULLUP; }
+set_pin_assignment	{ enc_s2 }	{ LOCATION = N16; IOSTANDARD = LVCMOS33; PULLTYPE = PULLUP; }
+set_pin_assignment	{ enc_key }	{ LOCATION = P16; IOSTANDARD = LVCMOS33; PULLTYPE = PULLUP; }
+set_pin_assignment	{ kp_row[0] }	{ LOCATION = D14; IOSTANDARD = LVCMOS33; DRIVESTRENGTH = 8; PULLTYPE = NONE; }
+set_pin_assignment	{ kp_row[1] }	{ LOCATION = G12; IOSTANDARD = LVCMOS33; DRIVESTRENGTH = 8; PULLTYPE = NONE; }
+set_pin_assignment	{ kp_row[2] }	{ LOCATION = H13; IOSTANDARD = LVCMOS33; DRIVESTRENGTH = 8; PULLTYPE = NONE; }
+set_pin_assignment	{ kp_row[3] }	{ LOCATION = J14; IOSTANDARD = LVCMOS33; DRIVESTRENGTH = 8; PULLTYPE = NONE; }
+set_pin_assignment	{ kp_col[0] }	{ LOCATION = G11; IOSTANDARD = LVCMOS33; PULLTYPE = PULLUP; }
+set_pin_assignment	{ kp_col[1] }	{ LOCATION = F13; IOSTANDARD = LVCMOS33; PULLTYPE = PULLUP; }
+set_pin_assignment	{ kp_col[2] }	{ LOCATION = H14; IOSTANDARD = LVCMOS33; PULLTYPE = PULLUP; }
+set_pin_assignment	{ kp_col[3] }	{ LOCATION = J13; IOSTANDARD = LVCMOS33; PULLTYPE = PULLUP; }

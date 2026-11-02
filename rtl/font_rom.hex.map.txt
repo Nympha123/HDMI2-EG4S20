@@ -1,0 +1,4 @@
+char	slot	code_for_text_vector
+片	0xCC	8'hCC
+信	0xCD	8'hCD
+息	0xCE	8'hCE

@@ -1,0 +1,11 @@
+﻿# HDMI2 / EG4S20 - bitstream manifest
+
+| item | value |
+|---|---|
+| file | HDMI2_HDMI14_Player_final.bit |
+| size | 675020 bytes |
+| md5  | 27B642E7ABAE56FA92BD53E84E19231B |
+| device | Anlogic EG4S20BG256 (HX4S20) |
+| tool | TD 6.2.168116 |
+
+Only the newest bitstream is kept in this repository.
